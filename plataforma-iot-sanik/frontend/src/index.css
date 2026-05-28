@@ -1,0 +1,49 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* { box-sizing: border-box; }
+
+/* ── Variables de tema ── */
+:root, [data-theme="dark"] {
+  --bg:       #0A0F0D;
+  --bg2:      #111810;
+  --card:     #121A16;
+  --border:   #1E2E28;
+  --text:     #F0F5F2;
+  --text2:    #8FA899;
+  --green:    #1D9E75;
+  --green-l:  #25C48F;
+}
+
+[data-theme="light"] {
+  --bg:       #F4F7F5;
+  --bg2:      #EAEFEC;
+  --card:     #FFFFFF;
+  --border:   #D4E0D8;
+  --text:     #0F1F18;
+  --text2:    #4A6B5A;
+  --green:    #1D9E75;
+  --green-l:  #15805E;
+}
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  transition: background .2s, color .2s;
+}
+
+/* Aplicar variables a clases de Tailwind usadas */
+.bg-\[\#0A0F0D\]  { background: var(--bg) !important; }
+.bg-\[\#111810\]  { background: var(--bg2) !important; }
+.bg-\[\#121A16\]  { background: var(--card) !important; }
+.border-\[\#1E2E28\] { border-color: var(--border) !important; }
+.text-white       { color: var(--text) !important; }
+.text-\[\#8FA899\]{ color: var(--text2) !important; }
+.text-\[\#F0F5F2\]{ color: var(--text) !important; }
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
