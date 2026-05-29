@@ -1,5 +1,6 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { Wind, Cpu, User, LogOut, Shield, Sun, Moon } from 'lucide-react'
+import logo from '../../assets/airsunbox-logo.svg'
+import { Cpu, User, LogOut, Shield, Sun, Moon } from 'lucide-react'
 import useAuthStore from '../../store/auth'
 import useThemeStore from '../../store/theme'
 
@@ -17,10 +18,7 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
         <div className="flex items-center gap-6">
           <Link to="/devices" className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{background:'var(--green)'}}>
-              <Wind size={16} color="white" />
-            </div>
-            <span className="font-bold" style={{fontFamily:'Syne,sans-serif',color:'var(--text)'}}>Sanik</span>
+            <img src={logo} alt="AirSunBox" className="h-9 w-auto object-contain" />
           </Link>
 
           <nav className="hidden md:flex items-center gap-1">

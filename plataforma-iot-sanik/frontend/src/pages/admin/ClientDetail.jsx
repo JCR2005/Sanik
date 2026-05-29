@@ -1,36 +1,58 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import AdminLayout from '../../components/admin/AdminLayout'
+import MapPicker from '../../components/MapPicker'
 import { ArrowLeft, Plus, Wifi, WifiOff, Clock, CreditCard, Ban, CheckCircle, MapPin, X, ChevronRight } from 'lucide-react'
+import { devices as devicesApi, organizations as orgsApi } from '../../services/api'
 
-const MOCK_CLIENTS = {
-  '1': { id: '1', name: 'Municipalidad Xela', email: 'admin@xela.gob.gt', phone: '7761-2345', location: 'Quetzaltenango', plan: 'Pro', status: 'active', paidUntil: '2026-06-01',
-    devices: [
-      { id: 'd1', name: 'Estación Central', label: 'estacion-central', status: 'active', lat: 14.8347, lng: -91.5181, lastSeen: '2026-05-27T09:00:00Z', serial: 'SNK-001' },
-      { id: 'd2', name: 'Estación Norte', label: 'estacion-norte', status: 'pending', lat: 14.8447, lng: -91.5081, lastSeen: null, serial: 'SNK-002' },
-      { id: 'd3', name: 'Estación Industrial', label: 'estacion-industrial', status: 'active', lat: 14.8147, lng: -91.4981, lastSeen: '2026-05-27T08:45:00Z', serial: 'SNK-003' },
-    ],
-    payments: [
-      { id: 'p1', amount: 299, date: '2026-05-01', status: 'paid', note: 'Transferencia Banrural' },
-      { id: 'p2', amount: 299, date: '2026-04-01', status: 'paid', note: 'Depósito en efectivo' },
-      { id: 'p3', amount: 299, date: '2026-06-01', status: 'pending', note: '' },
-    ]
-  }
+const EMPTY_CLIENT = {
+  id: '',
+  name: '',
+  email: '',
+  phone: '',
+  location: '',
+  plan: 'free',
+  status: 'active',
+  paidUntil: null,
+  devices: [],
+  payments: []
 }
 
 function AddDeviceModal({ clientId, onClose, onAdd }) {
   const [form, setForm] = useState({ name: '', label: '', lat: '', lng: '' })
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
-    setTimeout(() => {
-      const serial = `SNK-${String(Math.floor(Math.random()*900)+100)}`
-      onAdd({ id: Date.now().toString(), ...form, status: 'pending', lastSeen: null, serial })
-      setLoading(false)
+    setError('')
+    try {
+      const payload = {
+        orgId: clientId,
+        name: form.name,
+        label: form.label,
+        lat: form.lat ? parseFloat(form.lat) : null,
+        lng: form.lng ? parseFloat(form.lng) : null
+      }
+      const device = await devicesApi.create(payload)
+      onAdd({
+        id: device.id,
+        name: device.name,
+        label: device.label,
+        status: device.status === 'online' ? 'active' : (device.status || 'pending'),
+        lat: device.lat,
+        lng: device.lng,
+        lastSeen: device.last_seen || null,
+        serial: device.serial || device.label || `SNK-${String(device.id).slice(0, 3)}`,
+        token: device.token
+      })
       onClose()
-    }, 600)
+    } catch (err) {
+      setError(err.message || 'No se pudo crear el dispositivo')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -41,6 +63,11 @@ function AddDeviceModal({ clientId, onClose, onAdd }) {
           <button onClick={onClose} className="text-[#8FA899] hover:text-white"><X size={20} /></button>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
+          {error && (
+            <div className="border rounded-lg px-3 py-2 text-xs" style={{ borderColor: '#EF4444', color: '#FCA5A5', background: 'rgba(239,68,68,0.1)' }}>
+              {error}
+            </div>
+          )}
           {[['Nombre','name','Estación Central','text'],['Label (ID)','label','estacion-central','text']].map(([l,n,p,t]) => (
             <div key={n}>
               <label className="text-[#8FA899] text-xs block mb-1.5">{l}</label>
@@ -54,6 +81,15 @@ function AddDeviceModal({ clientId, onClose, onAdd }) {
                 <input type="number" step="any" value={form[n]} onChange={e => setForm({...form, [n]: e.target.value})} placeholder={p} className="w-full bg-[#0A0F0D] border border-[#1E2E28] rounded-lg px-3 py-2.5 text-white text-sm outline-none focus:border-[#1D9E75]" />
               </div>
             ))}
+          </div>
+          <div>
+            <label className="text-[#8FA899] text-xs block mb-2">Seleccioná ubicación en el mapa</label>
+            <MapPicker
+              lat={form.lat ? parseFloat(form.lat) : null}
+              lng={form.lng ? parseFloat(form.lng) : null}
+              onChange={({ lat, lng }) => setForm(prev => ({ ...prev, lat: lat.toFixed(6), lng: lng.toFixed(6) }))}
+              height={180}
+            />
           </div>
           <div className="bg-[#1D9E75]/10 border border-[#1D9E75]/20 rounded-lg p-3 text-xs text-[#25C48F]">
             Al crear, el estado será <strong>Pendiente</strong>. Cambialo a Activo cuando entregues la estación al cliente.
@@ -71,16 +107,71 @@ function AddDeviceModal({ clientId, onClose, onAdd }) {
 export default function AdminClientDetail() {
   const { clientId } = useParams()
   const navigate = useNavigate()
-  const [client, setClient] = useState(MOCK_CLIENTS[clientId] || MOCK_CLIENTS['1'])
+  const [client, setClient] = useState(EMPTY_CLIENT)
   const [showAddDevice, setShowAddDevice] = useState(false)
   const [tab, setTab] = useState('devices')
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
 
   const statusConfig = {
     active:  { label: 'Activo',    bg: 'bg-[#1D9E75]/10',    text: 'text-[#1D9E75]' },
     pending: { label: 'Pendiente', bg: 'bg-amber-500/10',    text: 'text-amber-400' },
-    offline: { label: 'Sin señal', bg: 'bg-[#1E2E28]',       text: 'text-[#8FA899]' },
+    offline: { label: 'Sin señal', bg: 'bg-[#DFF1FF]',       text: 'text-[#2E8ED3]' },
     inactive:{ label: 'Inactivo',  bg: 'bg-red-500/10',      text: 'text-red-400' },
   }
+
+  const normalizeDeviceStatus = (status) => {
+    if (!status) return 'offline'
+    if (status === 'online') return 'active'
+    if (status === 'offline') return 'offline'
+    return status
+  }
+
+  useEffect(() => {
+    let active = true
+    const load = async () => {
+      setLoading(true)
+      setLoadError('')
+      try {
+        const [org, devices] = await Promise.all([
+          orgsApi.get(clientId),
+          devicesApi.list(clientId)
+        ])
+
+        if (!active) return
+
+        setClient({
+          id: org.id,
+          name: org.name,
+          email: org.email || '',
+          phone: org.phone || '',
+          location: org.location || '',
+          plan: org.plan || 'free',
+          status: org.status || 'active',
+          paidUntil: org.paid_until || org.paidUntil || null,
+          devices: (devices || []).map(d => ({
+            id: d.id,
+            name: d.name,
+            label: d.label,
+            status: normalizeDeviceStatus(d.status),
+            lat: d.lat,
+            lng: d.lng,
+            lastSeen: d.last_seen || d.lastSeen || null,
+            serial: d.serial || d.label || `SNK-${String(d.id).slice(0, 3)}`,
+            token: d.token
+          })),
+          payments: []
+        })
+      } catch (err) {
+        if (active) setLoadError(err.message || 'No se pudo cargar el cliente')
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
+
+    load()
+    return () => { active = false }
+  }, [clientId])
 
   const handleActivate = (deviceId) => {
     setClient(prev => ({ ...prev, devices: prev.devices.map(d => d.id === deviceId ? { ...d, status: 'active' } : d) }))
@@ -92,7 +183,13 @@ export default function AdminClientDetail() {
 
   return (
     <AdminLayout>
-      {showAddDevice && <AddDeviceModal clientId={clientId} onClose={() => setShowAddDevice(false)} onAdd={d => { setClient(prev => ({ ...prev, devices: [...prev.devices, d] })); setShowAddDevice(false) }} />}
+      {showAddDevice && (
+        <AddDeviceModal
+          clientId={clientId}
+          onClose={() => setShowAddDevice(false)}
+          onAdd={d => { setClient(prev => ({ ...prev, devices: [...prev.devices, d] })); setShowAddDevice(false) }}
+        />
+      )}
 
       <div className="p-8">
         {/* Header */}
@@ -102,7 +199,7 @@ export default function AdminClientDetail() {
           </button>
           <div className="flex-1">
             <div className="flex items-center gap-3 flex-wrap">
-              <h1 className="text-white text-2xl font-bold">{client.name}</h1>
+              <h1 className="text-white text-2xl font-bold">{loading ? 'Cargando...' : (client.name || 'Cliente')}</h1>
               <span className={`text-xs px-2.5 py-1 rounded-full ${client.status === 'active' ? 'bg-[#1D9E75]/10 text-[#1D9E75]' : 'bg-red-500/10 text-red-400'}`}>
                 {client.status === 'active' ? 'Activo' : 'Suspendido'}
               </span>
@@ -119,6 +216,12 @@ export default function AdminClientDetail() {
             </button>
           </div>
         </div>
+
+        {loadError && (
+          <div className="mb-4 border rounded-lg px-3 py-2 text-xs" style={{ borderColor: '#F97316', color: '#FDBA74', background: 'rgba(249,115,22,0.1)' }}>
+            {loadError}
+          </div>
+        )}
 
         {/* Stats rápidos */}
         <div className="grid grid-cols-4 gap-4 mb-6">
@@ -160,7 +263,7 @@ export default function AdminClientDetail() {
                     <div className="flex items-center gap-4 text-xs text-[#8FA899]">
                       {d.lat && <span className="flex items-center gap-1"><MapPin size={10} />{d.lat?.toFixed(4)}, {d.lng?.toFixed(4)}</span>}
                       {d.lastSeen && <span>Última señal: {new Date(d.lastSeen).toLocaleString('es-GT')}</span>}
-                      <span className="font-mono text-[#8FA899]">Token: {d.id.slice(0,8)}...</span>
+                      <span className="font-mono text-[#8FA899]">Token: {(d.token || d.id).slice(0,8)}...</span>
                     </div>
                   </div>
                   <div className="flex gap-2">

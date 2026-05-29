@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AdminLayout from '../../components/admin/AdminLayout'
 import { Search, Plus, X, ChevronRight } from 'lucide-react'
+import { organizations as orgsApi } from '../../services/api'
 
 const MOCK_CLIENTS = [
   { id: '1', name: 'Municipalidad Xela', slug: 'municipalidad-xela', plan: 'Pro', devices: 3, activeDevices: 2, email: 'admin@xela.gob.gt', phone: '77612345', location: 'Quetzaltenango', status: 'active', paidUntil: '2026-06-01', createdAt: '2026-01-15' },
@@ -14,26 +15,37 @@ const inputStyle = { background: 'var(--bg)', borderColor: 'var(--border)', colo
 
 // Modal FUERA del componente padre para evitar re-renders que pierden el foco
 function CreateClientModal({ onClose, onCreate }) {
-  const [form, setForm] = useState({ orgName: '', email: '', phone: '', location: '', plan: 'free' })
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [form, setForm] = useState({
+    orgName: '',
+    email: '',
+    phone: '',
+    location: '',
+    plan: 'free'
+  })
 
   const set = (field) => (e) => setForm(prev => ({ ...prev, [field]: e.target.value }))
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
-    setTimeout(() => {
-      onCreate({
-        id: Date.now().toString(),
-        name: form.orgName,
-        slug: form.orgName.toLowerCase().replace(/\s/g, '-'),
-        plan: form.plan, devices: 0, activeDevices: 0,
-        email: form.email, phone: form.phone, location: form.location,
-        status: 'active', paidUntil: null, createdAt: new Date().toISOString()
-      })
+    setError('')
+    try {
+      const payload = {
+        orgName: form.orgName,
+        phone: form.phone || undefined,
+        location: form.location || undefined,
+        plan: form.plan
+      }
+      const res = await orgsApi.create(payload)
+      const created = res?.org || res?.organization || res
+      onCreate(created)
+    } catch (err) {
+      setError(err.message || 'No se pudo crear el cliente')
+    } finally {
       setLoading(false)
-      onClose()
-    }, 800)
+    }
   }
 
   return (
@@ -44,6 +56,11 @@ function CreateClientModal({ onClose, onCreate }) {
           <button onClick={onClose} style={{ color: 'var(--text2)' }}><X size={20} /></button>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
+          {error && (
+            <div className="border rounded-lg px-3 py-2 text-xs" style={{ borderColor: '#EF4444', color: '#FCA5A5', background: 'rgba(239,68,68,0.1)' }}>
+              {error}
+            </div>
+          )}
           <div>
           <label className="text-xs block mb-1.5" style={{ color: 'var(--text2)' }}>
             Nombre de la organización <span style={{ color: '#EF4444' }}>*</span>
@@ -98,8 +115,8 @@ function CreateClientModal({ onClose, onCreate }) {
             </button>
           </div>
           <p className="text-center text-xs" style={{ color: 'var(--text2)' }}>
-              <span style={{ color: '#EF4444' }}>*</span> Campo obligatorio
-            </p>
+            <span style={{ color: '#EF4444' }}>*</span> Campo obligatorio
+          </p>
         </form>
       </div>
     </div>
@@ -108,16 +125,54 @@ function CreateClientModal({ onClose, onCreate }) {
 
 export default function AdminClients() {
   const navigate = useNavigate()
-  const [clients, setClients] = useState(MOCK_CLIENTS)
+  const [clients, setClients] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
   const [search, setSearch] = useState('')
   const [showModal, setShowModal] = useState(false)
 
+  useEffect(() => {
+    let active = true
+    const load = async () => {
+      setLoading(true)
+      setLoadError('')
+      try {
+        const data = await orgsApi.list()
+        const mapped = (data || []).map((org) => ({
+          id: org.id,
+          name: org.name,
+          slug: org.slug,
+          plan: org.plan ? org.plan[0].toUpperCase() + org.plan.slice(1) : '—',
+          devices: org.device_count ?? org.devices ?? 0,
+          activeDevices: org.active_devices ?? org.activeDevices ?? 0,
+          email: org.email || '',
+          phone: org.phone || '',
+          location: org.location || '',
+          status: org.status || 'active',
+          paidUntil: org.paid_until || org.paidUntil || null,
+          createdAt: org.created_at || org.createdAt || null
+        }))
+        if (active) setClients(mapped)
+      } catch (err) {
+        if (active) {
+          setLoadError(err.message || 'No se pudieron cargar los clientes')
+          setClients(MOCK_CLIENTS)
+        }
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
+
+    load()
+    return () => { active = false }
+  }, [])
+
   const filtered = clients.filter(c =>
-    c.name.toLowerCase().includes(search.toLowerCase()) ||
-    c.email.toLowerCase().includes(search.toLowerCase())
+    (c.name || '').toLowerCase().includes(search.toLowerCase()) ||
+    (c.email || '').toLowerCase().includes(search.toLowerCase())
   )
 
-  const planColor = { free: 'var(--text2)', pro: '#1D9E75', empresarial: '#A78BFA', pro: '#1D9E75' }
+  const planColor = { free: 'var(--text2)', pro: '#1D9E75', empresarial: '#A78BFA', enterprise: '#A78BFA', enterpriseplan: '#A78BFA' }
   const statusBadge = { active: 'bg-[#1D9E75]/10 text-[#1D9E75]', suspended: 'bg-red-500/10 text-red-400', pending: 'bg-amber-500/10 text-amber-400' }
   const statusLabel = { active: 'Activo', suspended: 'Suspendido', pending: 'Pendiente' }
 
@@ -126,19 +181,42 @@ export default function AdminClients() {
       {showModal && (
         <CreateClientModal
           onClose={() => setShowModal(false)}
-          onCreate={c => { setClients(prev => [c, ...prev]); setShowModal(false) }}
+          onCreate={c => {
+            const normalized = {
+              id: c.id,
+              name: c.name,
+              slug: c.slug,
+              plan: c.plan ? c.plan[0].toUpperCase() + c.plan.slice(1) : '—',
+              devices: c.device_count ?? c.devices ?? 0,
+              activeDevices: c.active_devices ?? c.activeDevices ?? 0,
+              email: c.email || '',
+              phone: c.phone || '',
+              location: c.location || '',
+              status: c.status || 'active',
+              paidUntil: c.paid_until || c.paidUntil || null,
+              createdAt: c.created_at || c.createdAt || new Date().toISOString()
+            }
+            setClients(prev => [normalized, ...prev])
+            setShowModal(false)
+          }}
         />
       )}
       <div className="p-8">
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-2xl font-bold" style={{ color: 'var(--text)' }}>Clientes</h1>
-            <p className="text-sm mt-1" style={{ color: 'var(--text2)' }}>{clients.length} organizaciones registradas</p>
+            <p className="text-sm mt-1" style={{ color: 'var(--text2)' }}>{loading ? 'Cargando...' : `${clients.length} organizaciones registradas`}</p>
           </div>
           <button onClick={() => setShowModal(true)} className="flex items-center gap-2 bg-[#1D9E75] hover:bg-[#25C48F] text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-colors">
             <Plus size={16} /> Nuevo cliente
           </button>
         </div>
+
+        {loadError && (
+          <div className="mb-4 border rounded-lg px-3 py-2 text-xs" style={{ borderColor: '#F97316', color: '#FDBA74', background: 'rgba(249,115,22,0.1)' }}>
+            {loadError}
+          </div>
+        )}
 
         <div className="relative mb-6">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text2)' }} />

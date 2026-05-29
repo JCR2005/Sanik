@@ -11,6 +11,7 @@ import Profile from './pages/Profile'
 import AdminDashboard from './pages/admin/Dashboard'
 import AdminClients from './pages/admin/Clients'
 import AdminClientDetail from './pages/admin/ClientDetail'
+import AdminDeviceDetail from './pages/admin/DeviceDetail'
 import AdminTeam from './pages/admin/Team'
 import AdminVariables from './pages/admin/Variables'
 import AdminRequests from './pages/admin/Requests'
@@ -23,8 +24,8 @@ function PrivateRoute({ children }) {
 function AdminRoute({ children }) {
   const { token, user } = useAuthStore()
   if (!token) return <Navigate to="/login" replace />
-if (!['admin', 'superadmin', 'worker'].includes(user?.role)) return <Navigate to="/devices" replace />  
-return children
+  if (!['admin', 'superadmin', 'worker'].includes(user?.role)) return <Navigate to="/devices" replace />
+  return children
 }
 
 export default function App() {
@@ -42,6 +43,7 @@ export default function App() {
         <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
         <Route path="/admin/clientes" element={<AdminRoute><AdminClients /></AdminRoute>} />
         <Route path="/admin/clientes/:clientId" element={<AdminRoute><AdminClientDetail /></AdminRoute>} />
+  <Route path="/admin/clientes/:clientId/dispositivo/:deviceId" element={<AdminRoute><AdminDeviceDetail /></AdminRoute>} />
         <Route path="/admin/equipo" element={<AdminRoute><AdminTeam /></AdminRoute>} />
         <Route path="/admin/variables" element={<AdminRoute><AdminVariables /></AdminRoute>} />
         <Route path="/admin/solicitudes" element={<AdminRoute><AdminRequests /></AdminRoute>} />

@@ -1,19 +1,27 @@
-const BASE = '/api'
+const BASE = import.meta.env.VITE_API_BASE || '/api'
 
 function getToken() {
   return localStorage.getItem('sanik_token')
 }
 
 async function request(path, options = {}) {
-  const res = await fetch(`${BASE}${path}`, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...(getToken() ? { 'X-Auth-Token': getToken() } : {})
-    },
-    ...options
-  })
-  const data = await res.json()
-  if (!res.ok) throw new Error(data.error || 'Error del servidor')
+  let res
+  try {
+    const token = getToken()
+    res = await fetch(`${BASE}${path}`, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}`, 'X-Auth-Token': token } : {})
+      },
+      ...options
+    })
+  } catch (err) {
+    throw new Error('No se pudo conectar con el servidor. Verifica que el backend esté activo o la URL base sea correcta.')
+  }
+
+  const contentType = res.headers.get('content-type') || ''
+  const data = contentType.includes('application/json') ? await res.json() : null
+  if (!res.ok) throw new Error(data?.error || data?.message || 'Error del servidor')
   return data
 }
 
@@ -29,21 +37,21 @@ export const auth = {
 
 // ── Devices ───────────────────────────────────
 export const devices = {
-  list: () => request('/devices'),
-  get: (id) => request(`/devices/${id}`),
+  list: (orgId) => request(`/devices${orgId ? `?orgId=${orgId}` : ''}`),
+  get: (id, orgId) => request(`/devices/${id}${orgId ? `?orgId=${orgId}` : ''}`),
   create: (data) => request('/devices', { method: 'POST', body: JSON.stringify(data) }),
-  update: (id, data) => request(`/devices/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-  delete: (id) => request(`/devices/${id}`, { method: 'DELETE' }),
-  variables: (id) => request(`/devices/${id}/variables`),
-  lastValues: (id) => request(`/devices/${id}/last-values`)
+  update: (id, data, orgId) => request(`/devices/${id}${orgId ? `?orgId=${orgId}` : ''}`, { method: 'PUT', body: JSON.stringify(data) }),
+  delete: (id, orgId) => request(`/devices/${id}${orgId ? `?orgId=${orgId}` : ''}`, { method: 'DELETE' }),
+  variables: (id, orgId) => request(`/devices/${id}/variables${orgId ? `?orgId=${orgId}` : ''}`),
+  lastValues: (id, orgId) => request(`/devices/${id}/last-values${orgId ? `?orgId=${orgId}` : ''}`)
 }
 
 // ── Dots (datos históricos) ────────────────────
 export const dots = {
-  get: (deviceId, variable, range = '24h') =>
-    request(`/dots/${deviceId}/${variable}?range=${range}`),
-  getMultiple: (deviceId, variables, range = '24h') =>
-    request(`/dots/${deviceId}?variables=${variables.join(',')}&range=${range}`)
+  get: (deviceId, variable, range = '24h', orgId) =>
+    request(`/dots/${deviceId}/${variable}?range=${range}${orgId ? `&orgId=${orgId}` : ''}`),
+  getMultiple: (deviceId, variables, range = '24h', orgId) =>
+    request(`/dots/${deviceId}?variables=${variables.join(',')}&range=${range}${orgId ? `&orgId=${orgId}` : ''}`)
 }
 
 // ── Alerts ────────────────────────────────────
@@ -52,4 +60,13 @@ export const alerts = {
   create: (data) => request('/alerts', { method: 'POST', body: JSON.stringify(data) }),
   toggle: (id, active) => request(`/alerts/${id}`, { method: 'PATCH', body: JSON.stringify({ active }) }),
   delete: (id) => request(`/alerts/${id}`, { method: 'DELETE' })
+}
+
+// ── Organizaciones (admin) ─────────────────────
+export const organizations = {
+  list: () => request('/organizations'),
+  get: (id) => request(`/organizations/${id}`),
+  create: (data) => request('/organizations', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id, data) => request(`/organizations/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  updateStatus: (id, status) => request(`/organizations/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
 }

@@ -12,8 +12,10 @@
   --border:   #1E2E28;
   --text:     #F0F5F2;
   --text2:    #8FA899;
-  --green:    #1D9E75;
-  --green-l:  #25C48F;
+  --green:    #4DB6FF;   /* celeste principal */
+  --green-l:  #2F9FE6;   /* celeste hover */
+  --accent:   #2CB67D;   /* verde de apoyo */
+  --accent-l: #37C98A;
 }
 
 [data-theme="light"] {
@@ -23,8 +25,10 @@
   --border:   #D4E0D8;
   --text:     #0F1F18;
   --text2:    #4A6B5A;
-  --green:    #1D9E75;
-  --green-l:  #15805E;
+  --green:    #3AA6F5;
+  --green-l:  #2E8ED3;
+  --accent:   #24A66F;
+  --accent-l: #2FBA7D;
 }
 
 body {
@@ -43,6 +47,15 @@ body {
 .text-white       { color: var(--text) !important; }
 .text-\[\#8FA899\]{ color: var(--text2) !important; }
 .text-\[\#F0F5F2\]{ color: var(--text) !important; }
+.bg-\[\#1D9E75\] { background: var(--green) !important; }
+.text-\[\#1D9E75\] { color: var(--green) !important; }
+.border-\[\#1D9E75\] { border-color: var(--green) !important; }
+.hover\:bg-\[\#25C48F\]:hover { background: var(--green-l) !important; }
+.bg-\[\#1D9E75\]\/10 { background: rgba(77,182,255,0.1) !important; }
+.bg-\[\#1D9E75\]\/20 { background: rgba(77,182,255,0.2) !important; }
+.border-\[\#1D9E75\]\/20 { border-color: rgba(77,182,255,0.2) !important; }
+.hover\:border-\[\#1D9E75\]\/40:hover { border-color: rgba(77,182,255,0.4) !important; }
+.text-\[\#25C48F\] { color: var(--accent-l) !important; }
 
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: var(--bg); }

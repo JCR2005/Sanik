@@ -1,3 +1,5 @@
+const SANIK_ROLES = ['superadmin', 'admin', 'worker']
+
 export default async function dotsRoutes(app) {
 
   app.addHook('onRequest', app.authenticate)
@@ -19,9 +21,13 @@ export default async function dotsRoutes(app) {
     const interval = intervals[range] || '24 hours'
 
     // Verificar que el dispositivo pertenece a la organización
+    const targetOrgId = (SANIK_ROLES.includes(req.user.role) && req.query.orgId)
+      ? req.query.orgId
+      : req.user.orgId
+
     const { rows: check } = await app.db.query(
       'SELECT id FROM devices WHERE id = $1 AND org_id = $2',
-      [deviceId, req.user.orgId]
+      [deviceId, targetOrgId]
     )
     if (!check.length) return reply.code(403).send({ error: 'Sin acceso' })
 
@@ -55,9 +61,13 @@ export default async function dotsRoutes(app) {
     }
     const interval = intervals[range] || '24 hours'
 
+    const targetOrgId = (SANIK_ROLES.includes(req.user.role) && req.query.orgId)
+      ? req.query.orgId
+      : req.user.orgId
+
     const { rows: check } = await app.db.query(
       'SELECT id FROM devices WHERE id = $1 AND org_id = $2',
-      [deviceId, req.user.orgId]
+      [deviceId, targetOrgId]
     )
     if (!check.length) return reply.code(403).send({ error: 'Sin acceso' })
 

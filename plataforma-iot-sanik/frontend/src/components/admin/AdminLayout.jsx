@@ -1,7 +1,8 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import useAuthStore from '../../store/auth'
 import useThemeStore from '../../store/theme'
-import { Wind, LayoutDashboard, Users, Cpu, Settings, LogOut, Shield, FileText, ChevronRight, Sun, Moon } from 'lucide-react'
+import logo from '../../assets/airsunbox-logo.svg'
+import { LayoutDashboard, Users, Cpu, Settings, LogOut, Shield, FileText, ChevronRight, Sun, Moon } from 'lucide-react'
 
 const NAV = [
   { label: 'Dashboard',   icon: LayoutDashboard, path: '/admin' },
@@ -29,13 +30,8 @@ export default function AdminLayout({ children }) {
         {/* Logo */}
         <div className="p-5 border-b flex items-center justify-between" style={{borderColor:'var(--border)'}}>
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{background:'var(--green)'}}>
-              <Wind size={16} color="white" />
-            </div>
-            <div>
-              <span className="font-bold text-sm" style={{fontFamily:'Syne,sans-serif',color:'var(--text)'}}>Sanik</span>
-              <div className="text-xs" style={{color:'var(--green)'}}>Panel Admin</div>
-            </div>
+            <img src={logo} alt="AirSunBox" className="h-10 w-auto object-contain" />
+            <div className="text-xs" style={{color:'var(--green)'}}>Panel Admin</div>
           </div>
           {/* Toggle tema */}
           <button onClick={toggle} className="p-1.5 rounded-lg transition-colors" style={{color:'var(--text2)'}} title={dark ? 'Modo claro' : 'Modo oscuro'}>

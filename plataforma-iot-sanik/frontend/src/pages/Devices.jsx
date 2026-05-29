@@ -14,7 +14,7 @@ function DeviceCard({ device, onClick }) {
     >
       <div className="flex items-start justify-between mb-3">
         <h3 className="text-white font-semibold">{device.name}</h3>
-        <span className={`flex items-center gap-1.5 text-xs px-2 py-1 rounded-full ${isOnline ? 'bg-[#1D9E75]/10 text-[#1D9E75]' : 'bg-[#1E2E28] text-[#8FA899]'}`}>
+  <span className={`flex items-center gap-1.5 text-xs px-2 py-1 rounded-full ${isOnline ? 'bg-[#1D9E75]/10 text-[#1D9E75]' : 'bg-[#DFF1FF] text-[#2E8ED3]'}`}>
           {isOnline ? <Wifi size={10} /> : <WifiOff size={10} />}
           {isOnline ? 'Online' : 'Offline'}
         </span>

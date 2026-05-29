@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { auth } from '../services/api'
 import useAuthStore from '../store/auth'
-import { Wind, Mail, Lock, Eye, EyeOff } from 'lucide-react'
+import logo from '../assets/airsunbox-logo.svg'
+import { Mail, Lock, Eye, EyeOff } from 'lucide-react'
 
 export default function Login() {
   const navigate = useNavigate()
@@ -31,20 +32,17 @@ export default function Login() {
       {/* Header mínimo */}
       <div className="p-6">
         <a href="/" className="flex items-center gap-2 w-fit">
-          <div className="w-8 h-8 bg-[#1D9E75] rounded-lg flex items-center justify-center">
-            <Wind size={16} color="white" />
-          </div>
-          <span className="text-white font-bold text-lg" style={{fontFamily:'Syne,sans-serif'}}>Sanik</span>
+          <img src={logo} alt="AirSunBox" className="h-9 w-auto object-contain" />
         </a>
       </div>
 
       <main className="flex-1 flex items-center justify-center p-4">
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
-            <div className="w-16 h-16 bg-[#1D9E75] rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <Wind size={32} color="white" />
+            <div className="w-24 h-24 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{background:'rgba(77,182,255,.12)'}}>
+              <img src={logo} alt="AirSunBox" className="w-20 h-20 object-contain" />
             </div>
-            <h1 className="text-white text-2xl font-bold mb-1">Ingresar a Sanik</h1>
+            <h1 className="text-white text-2xl font-bold mb-1">Ingresar a AirSunBox</h1>
             <p className="text-[#8FA899] text-sm">Plataforma de monitoreo ambiental IoT</p>
           </div>
 
@@ -101,15 +99,15 @@ export default function Login() {
 
           <p className="text-center text-[#8FA899] text-xs mt-6">
             ¿Necesitás acceso? Contactanos a{' '}
-            <a href="mailto:contacto@sanik.io" className="text-[#1D9E75] hover:underline">
-              contacto@sanik.io
+            <a href="mailto:contacto@AirSunBox.io" className="text-[#1D9E75] hover:underline">
+              contacto@AirSunBox.io
             </a>
           </p>
         </div>
       </main>
 
       <footer className="p-4 text-center text-[#8FA899] text-xs">
-        © 2026 Sanik · Monitoreo ambiental para Guatemala
+        © 2026 AirSunBox · Monitoreo ambiental para Guatemala
       </footer>
     </div>
   )
