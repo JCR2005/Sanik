@@ -188,8 +188,8 @@ export default function Dashboard() {
                 ))}
               </div>
 
-              <ResponsiveContainer width="100%" height={280}>
-                <LineChart data={chartData}>
+              <ResponsiveContainer width="100%" height={320}>
+                <LineChart data={chartData} margin={{ top: 12, right: 16, left: 0, bottom: 12 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                   <XAxis dataKey="time" stroke="var(--text2)" tick={{ fontSize: 10 }} interval="preserveStartEnd" />
                   <YAxis stroke="var(--text2)" tick={{ fontSize: 10 }} />

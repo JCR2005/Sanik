@@ -16,8 +16,8 @@ export default async function authRoutes(app) {
     const { rows } = await app.db.query(
       `SELECT u.id, u.email, u.password_hash, u.role, u.name, u.status,
               u.org_id, o.name as org_name, o.slug as org_slug, o.plan, o.status as org_status
-       FROM users u
-       JOIN organizations o ON o.id = u.org_id
+      FROM users u
+      LEFT JOIN organizations o ON o.id = u.org_id
        WHERE u.email = $1`,
       [email]
     )
@@ -59,8 +59,8 @@ export default async function authRoutes(app) {
     const { rows } = await app.db.query(
       `SELECT u.id, u.email, u.role, u.name, u.phone,
               o.id as org_id, o.name as org_name, o.slug, o.plan, o.location
-       FROM users u
-       JOIN organizations o ON o.id = u.org_id
+       FROM users u 
+      LEFT JOIN organizations o ON o.id = u.org_id
        WHERE u.id = $1`,
       [req.user.userId]
     )
@@ -105,8 +105,8 @@ export default async function authRoutes(app) {
     const { rows } = await app.db.query(
       `SELECT u.id, u.email, u.role, u.name, u.status, u.created_at
        FROM users u
-       JOIN organizations o ON o.id = u.org_id
-       WHERE o.slug = 'sanik-internal'
+        LEFT JOIN organizations o ON o.id = u.org_id
+      WHERE (o.slug = 'sanik-internal' OR u.org_id IS NULL)
        ORDER BY u.created_at ASC`
     )
     return rows

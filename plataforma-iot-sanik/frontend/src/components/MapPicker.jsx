@@ -3,9 +3,10 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 
 const markerIcon = L.divIcon({
-  className: 'map-marker',
-  iconSize: [18, 18],
-  iconAnchor: [9, 9]
+  className: 'map-marker-icon',
+  html: '<span class="map-marker-dot"></span>',
+  iconSize: [20, 20],
+  iconAnchor: [10, 10]
 })
 
 function Recenter({ center }) {

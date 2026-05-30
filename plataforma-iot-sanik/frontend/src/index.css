@@ -60,3 +60,19 @@ body {
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: var(--bg); }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* ── Map marker ── */
+.map-marker-icon {
+  background: transparent !important;
+  border: none !important;
+}
+
+.map-marker-dot {
+  display: block;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 0 4px rgba(77, 182, 255, 0.2);
+  border: 2px solid #fff;
+}

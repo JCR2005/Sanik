@@ -1,9 +1,20 @@
+import crypto from 'crypto'
 const SANIK_ROLES = ['superadmin', 'admin', 'worker']
 
 export default async function devicesRoutes(app) {
 
   // Middleware de autenticación para todas las rutas
   app.addHook('onRequest', app.authenticate)
+
+  // ── NUEVA RUTA: Obtener el catálogo global de variables para el Modal ──
+  app.get('/catalog', async (req) => {
+    const { rows } = await app.db.query(
+      `SELECT label, name, unit, icon, description, data_type 
+       FROM variable_catalog 
+       ORDER BY name ASC`
+    )
+    return rows
+  })
 
   // ── Listar dispositivos de la organización ─────
   app.get('/', async (req) => {
@@ -12,11 +23,11 @@ export default async function devicesRoutes(app) {
       : req.user.orgId
     const { rows } = await app.db.query(
       `SELECT d.*,
-              COUNT(v.id) as variable_count,
+              COUNT(dv.variable_label) as variable_count,
               CASE WHEN d.last_seen > NOW() - INTERVAL '5 minutes'
                    THEN 'online' ELSE 'offline' END as status
        FROM devices d
-       LEFT JOIN variables v ON v.device_id = d.id
+       LEFT JOIN device_variables dv ON dv.device_id = d.id
        WHERE d.org_id = $1
        GROUP BY d.id
        ORDER BY d.created_at DESC`,
@@ -27,41 +38,53 @@ export default async function devicesRoutes(app) {
 
   // ── Crear dispositivo ──────────────────────────
   app.post('/', async (req, reply) => {
-    const { label, name, lat, lng, orgId } = req.body
+    const { label, name, lat, lng, orgId, description, icon, tags, selectedVariables } = req.body
+    
     const targetOrgId = (SANIK_ROLES.includes(req.user.role) && orgId)
       ? orgId
       : req.user.orgId
 
-    const { rows: [device] } = await app.db.query(
-      `INSERT INTO devices (org_id, label, name, lat, lng)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING *`,
-      [targetOrgId, label, name, lat, lng]
-    )
-
-    // Crear variables por defecto para estación meteorológica
-    const defaultVars = [
-      { label: 'temperatura', name: 'Temperatura',  unit: '°C' },
-      { label: 'humedad',     name: 'Humedad',       unit: '%'  },
-      { label: 'so2',         name: 'SO₂',           unit: 'ppb'},
-      { label: 'pm25',        name: 'PM2.5',         unit: 'µg/m³'},
-      { label: 'pm1',         name: 'PM1',           unit: 'µg/m³'},
-      { label: 'pm10',        name: 'PM10',          unit: 'µg/m³'},
-      { label: 'o3',          name: 'O₃',            unit: 'ppb'},
-      { label: 'nox',         name: 'NOx',           unit: 'ppb'},
-      { label: 'nh3',         name: 'NH₃',           unit: 'ppb'},
-      { label: 'mq135_adc',  name: 'MQ135 ADC',     unit: 'ADC'},
-    ]
-
-    for (const v of defaultVars) {
-      await app.db.query(
-        `INSERT INTO variables (device_id, label, name, unit)
-         VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING`,
-        [device.id, v.label, v.name, v.unit]
+    try {
+      const { rows: [device] } = await app.db.query(
+        `INSERT INTO devices (org_id, label, name, lat, lng, description, icon, tags)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+         RETURNING *`,
+        [
+          targetOrgId, 
+          label, 
+          name, 
+          lat, 
+          lng, 
+          description || null, 
+          icon || 'map-pin',           
+          tags ? JSON.stringify(tags) : '[]' 
+        ]
       )
-    }
 
-    return reply.code(201).send(device)
+      const token = crypto.randomBytes(24).toString('hex')
+      await app.db.query('UPDATE devices SET token = $1 WHERE id = $2', [token, device.id])
+      device.token = token
+
+      // Guardamos únicamente las relaciones elegidas por el cliente
+      if (Array.isArray(selectedVariables)) {
+        for (const labelKey of selectedVariables) {
+          await app.db.query(
+            `INSERT INTO device_variables (device_id, variable_label)
+             VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+            [device.id, labelKey]
+          )
+        }
+      }
+
+      return device
+
+    } catch (err) {
+      if (err.code === '23505') {
+        return reply.code(400).send({ error: 'Ya existe una estación con este nombre o identificador (Label) en esta organización.' })
+      }
+      req.log.error(err)
+      return reply.code(500).send({ error: 'Error interno al crear el dispositivo.' })
+    }
   })
 
   // ── Obtener un dispositivo ─────────────────────
@@ -87,7 +110,8 @@ export default async function devicesRoutes(app) {
     const targetOrgId = (SANIK_ROLES.includes(req.user.role) && req.query.orgId)
       ? req.query.orgId
       : req.user.orgId
-    const { name, label, lat, lng, status } = req.body
+    
+    const { name, label, lat, lng, status, description, icon, tags, selectedVariables } = req.body
 
     const { rows } = await app.db.query(
       `UPDATE devices SET
@@ -95,13 +119,34 @@ export default async function devicesRoutes(app) {
          label = COALESCE($2, label),
          lat = COALESCE($3, lat),
          lng = COALESCE($4, lng),
-         status = COALESCE($5, status)
-       WHERE id = $6 AND org_id = $7
+         status = COALESCE($5, status),
+         description = COALESCE($6, description),
+         icon = COALESCE($7, icon),
+         tags = COALESCE($8, tags)
+       WHERE id = $9 AND org_id = $10
        RETURNING *`,
-      [name, label, lat, lng, status, req.params.id, targetOrgId]
+      [name, label, lat, lng, status, description, icon, tags ? JSON.stringify(tags) : null, req.params.id, targetOrgId]
     )
 
     if (!rows.length) return reply.code(404).send({ error: 'Dispositivo no encontrado' })
+
+    // Sincronización inteligente de variables
+    if (Array.isArray(selectedVariables)) {
+      await app.db.query(
+        `DELETE FROM device_variables WHERE device_id = $1 AND NOT (variable_label = ANY($2))`,
+        [req.params.id, selectedVariables]
+      )
+
+      for (const labelKey of selectedVariables) {
+        await app.db.query(
+          `INSERT INTO device_variables (device_id, variable_label)
+           VALUES ($1, $2)
+           ON CONFLICT (device_id, variable_label) DO NOTHING`, 
+          [req.params.id, labelKey]
+        )
+      }
+    }
+
     return rows[0]
   })
 
@@ -119,34 +164,50 @@ export default async function devicesRoutes(app) {
     return { message: 'Dispositivo eliminado' }
   })
 
-  // ── Variables del dispositivo ──────────────────
+  // ── Variables del dispositivo (Trayendo metadatos desde el catálogo maestro) ──
   app.get('/:id/variables', async (req) => {
     const targetOrgId = (SANIK_ROLES.includes(req.user.role) && req.query.orgId)
       ? req.query.orgId
       : req.user.orgId
     const { rows } = await app.db.query(
-      `SELECT v.*
-       FROM variables v
-       JOIN devices d ON d.id = v.device_id
-       WHERE v.device_id = $1 AND d.org_id = $2
-       ORDER BY v.label`,
+      `SELECT vc.label, vc.name, vc.unit, vc.icon, vc.description, dv.created_at
+       FROM device_variables dv
+       JOIN variable_catalog vc ON vc.label = dv.variable_label
+       JOIN devices d ON d.id = dv.device_id
+       WHERE dv.device_id = $1 AND d.org_id = $2
+       ORDER BY vc.name`,
       [req.params.id, targetOrgId]
     )
     return rows
   })
 
-  // ── Último valor de todas las variables (para KPIs) ──
-  app.get('/:id/last-values', async (req) => {
+ app.get('/:id/last-values', async (req) => {
     const targetOrgId = (SANIK_ROLES.includes(req.user.role) && req.query.orgId)
       ? req.query.orgId
       : req.user.orgId
+
     const { rows: variables } = await app.db.query(
-      `SELECT v.label, v.name, v.unit, v.last_value, v.last_time
-       FROM variables v
-       JOIN devices d ON d.id = v.device_id
-       WHERE v.device_id = $1 AND d.org_id = $2`,
+      `SELECT vc.label, vc.name, vc.unit, vc.icon
+       FROM device_variables dv
+       JOIN variable_catalog vc ON vc.label = dv.variable_label
+       JOIN devices d ON d.id = dv.device_id
+       WHERE dv.device_id = $1 AND d.org_id = $2`,
       [req.params.id, targetOrgId]
     )
+
+    // ¡LA MAGIA FALTANTE! Buscar el valor real en Redis para cada variable
+    for (const v of variables) {
+      if (app.redis) {
+        const redisData = await app.redis.get(`last:${req.params.id}:${v.label}`)
+        if (redisData) {
+          const parsed = JSON.parse(redisData)
+          v.last_value = parsed.value
+        } else {
+          v.last_value = null
+        }
+      }
+    }
+
     return variables
   })
 }
