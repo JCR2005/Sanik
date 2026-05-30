@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import AdminLayout from '../../components/admin/AdminLayout'
+import { variables as varsApi } from '../../services/api'
 import { 
   Plus, Trash2, X, ChevronDown, Cpu, AlignLeft, AlertTriangle,
   Thermometer, Droplets, Wind, Cloud, Sun, Flame, Activity,
@@ -46,18 +47,21 @@ function NewVariableModal({ onClose, onCreate }) {
     }
 
     try {
-      const token = localStorage.getItem('sanik_token') || localStorage.getItem('token')
-      const res = await fetch('/api/variables/catalog', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ name, label, unit, data_type: dataType, icon, description: finalDescription })
+      const data = await varsApi.create({ 
+        name, 
+        label, 
+        unit, 
+        data_type: dataType, 
+        icon, 
+        description: finalDescription 
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Error al crear variable')
       onCreate(data)
       onClose()
-    } catch (err) { setError(err.message) } 
-    finally { setLoading(false) }
+    } catch (err) { 
+      setError(err.message) 
+    } finally { 
+      setLoading(false) 
+    }
   }
 
   const SelectedIcon = ICONS[icon] || Activity
@@ -251,18 +255,13 @@ export default function AdminVariables() {
   useEffect(() => {
     const fetchCatalog = async () => {
       try {
-        const token = localStorage.getItem('sanik_token') || localStorage.getItem('token')
-        const res = await fetch('/api/variables/catalog', { headers: { 'Authorization': `Bearer ${token}` } })
-        const data = await res.text()
-        // console.log('STATUS:', res.status)
-        // console.log('BODY:', data)
-        // console.log('Token', token)
-        // console.log('VITE_API_BASE:', import.meta.env.VITE_API_BASE)
-        // console.log('ENV:', import.meta.env)
-        // console.log('BASE=', BASE)
-        if (res.ok) setVariables(data)
-      } catch (err) { console.error("Error cargando el catálogo:", err) } 
-      finally { setLoading(false) }
+        const data = await varsApi.list()
+        setVariables(data)
+      } catch (err) { 
+        console.error("Error cargando el catálogo:", err) 
+      } finally { 
+        setLoading(false) 
+      }
     }
     fetchCatalog()
   }, [])
@@ -274,21 +273,11 @@ export default function AdminVariables() {
     setDeleteError('')
 
     try {
-      const token = localStorage.getItem('sanik_token') || localStorage.getItem('token')
-      const res = await fetch(`/api/variables/catalog/${variableToDelete.label}`, { 
-        method: 'DELETE', 
-        headers: { 'Authorization': `Bearer ${token}` } 
-      })
-      
-      if (res.ok) {
-        setVariables(prev => prev.filter(v => v.label !== variableToDelete.label))
-        setVariableToDelete(null) // Cierra el modal de éxito
-      } else {
-        const errorData = await res.json()
-        setDeleteError(errorData.error || 'Ocurrió un error al intentar eliminar.')
-      }
+      await varsApi.delete(variableToDelete.label)
+      setVariables(prev => prev.filter(v => v.label !== variableToDelete.label))
+      setVariableToDelete(null)
     } catch (err) { 
-      setDeleteError('Error de red al intentar conectar con el servidor.')
+      setDeleteError(err.message || 'Error al intentar eliminar.')
     } finally {
       setIsDeleting(false)
     }
