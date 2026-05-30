@@ -1,4 +1,4 @@
-import bcrypt from 'bcryptjs'
+import bcrypt from 'bcrypt'
 
 // Roles permitidos en el sistema
 // superadmin = admin central (solo uno, no se puede crear desde la app)

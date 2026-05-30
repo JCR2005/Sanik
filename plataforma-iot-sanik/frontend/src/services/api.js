@@ -1,4 +1,4 @@
-const BASE = 'http://localhost:3000/api'
+const BASE = import.meta.env.VITE_API_BASE || '/api'
 
 function getToken() {
   return localStorage.getItem('sanik_token')
