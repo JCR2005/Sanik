@@ -16,7 +16,8 @@ ALTER TABLE users
 ALTER TABLE users 
   ADD COLUMN IF NOT EXISTS name TEXT,
   ADD COLUMN IF NOT EXISTS phone TEXT,
-  ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'active';
+  ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'active',
+  ADD COLUMN IF NOT EXISTS temp_password TEXT;
 
 -- ─────────────────────────────────────────
 -- Actualizar organizaciones
@@ -26,7 +27,9 @@ ALTER TABLE organizations
   ADD COLUMN IF NOT EXISTS location TEXT,
   ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'active',
   ADD COLUMN IF NOT EXISTS paid_until TIMESTAMPTZ,
-  ADD COLUMN IF NOT EXISTS notes TEXT;
+  ADD COLUMN IF NOT EXISTS notes TEXT,
+  ADD COLUMN IF NOT EXISTS nit TEXT,
+  ADD COLUMN IF NOT EXISTS contact_name TEXT;
 
 -- ─────────────────────────────────────────
 -- Actualizar dispositivos
