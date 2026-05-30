@@ -253,7 +253,13 @@ export default function AdminVariables() {
       try {
         const token = localStorage.getItem('sanik_token') || localStorage.getItem('token')
         const res = await fetch('/api/variables/catalog', { headers: { 'Authorization': `Bearer ${token}` } })
-        const data = await res.json()
+        const data = await res.text()
+        console.log('STATUS:', res.status)
+        console.log('BODY:', data)
+        console.log('Token', token)
+        // console.log('VITE_API_BASE:', import.meta.env.VITE_API_BASE)
+        // console.log('ENV:', import.meta.env)
+        // console.log('BASE=', BASE)
         if (res.ok) setVariables(data)
       } catch (err) { console.error("Error cargando el catálogo:", err) } 
       finally { setLoading(false) }

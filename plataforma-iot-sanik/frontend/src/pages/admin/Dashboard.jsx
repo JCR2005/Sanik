@@ -33,7 +33,7 @@ export default function AdminDashboard() {
     <AdminLayout>
       {/* Fondo Glow Premium - Más grande y suave */}
       <div 
-        className="min-h-full px-10 py-10"
+        className="min-h-full py-4 lg:py-6"
         style={{ 
           backgroundImage: 'radial-gradient(circle at 50% -20%, rgba(103,183,232,0.18) 0%, rgba(103,183,232,0.05) 30%, transparent 70%)'
         }}
@@ -42,7 +42,7 @@ export default function AdminDashboard() {
           <p className="text-sm font-semibold capitalize tracking-wide" style={{ color: '#67B7E8' }}>
             {today}
           </p>
-          <h1 className="text-4xl font-bold tracking-tight" style={{ color: 'var(--text)', fontFamily: "'Syne', sans-serif" }}>
+          <h1 className="text-3xl lg:text-4xl font-bold tracking-tight" style={{ color: 'var(--text)', fontFamily: "'Syne', sans-serif" }}>
             Hola de nuevo, Superadmin
           </h1>
           <p className="text-base mt-2" style={{ color: 'var(--text2)' }}>
@@ -50,7 +50,7 @@ export default function AdminDashboard() {
           </p>
         </div>
         {/* Tarjetas de Estadísticas */}
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6 mb-10">
           {STAT_CARDS.map(({ label, value, icon: Icon, color, bg }) => (
             <div 
               key={label} 
@@ -67,7 +67,7 @@ export default function AdminDashboard() {
                 </div>
               </div>
               <div className="flex flex-col gap-1">
-                <div className="text-5xl font-bold tracking-tight" style={{ color: 'var(--text)', fontFamily: "'Syne', sans-serif" }}>
+                <div className="text-4xl lg:text-5xl font-bold tracking-tight" style={{ color: 'var(--text)', fontFamily: "'Syne', sans-serif" }}>
                   {value}
                 </div>
                 <span className="text-sm font-medium" style={{ color: 'var(--text2)' }}>

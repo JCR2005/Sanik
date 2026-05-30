@@ -575,38 +575,40 @@ export default function AdminClientDetail() {
         />
       )}
 
-      <div className="min-h-full px-10 py-10" style={{ backgroundImage: 'radial-gradient(circle at 50% -20%, rgba(103,183,232,0.05) 0%, transparent 50%)' }}>
+      <div className="min-h-full py-4 lg:py-10" style={{ backgroundImage: 'radial-gradient(circle at 50% -20%, rgba(103,183,232,0.05) 0%, transparent 50%)' }}>
         
-        <button onClick={() => navigate('/admin/clientes')} className="flex items-center gap-2 text-sm font-semibold mb-6 transition-colors hover:opacity-80" style={{ color: 'var(--text2)' }}>
+        <button onClick={() => navigate('/admin/clientes')} className="flex items-center gap-2 text-sm font-semibold mb-6 transition-colors hover:opacity-80 px-4 lg:px-0" style={{ color: 'var(--text2)' }}>
           <ArrowLeft size={16} /> Volver a clientes
         </button>
 
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10 pb-8 border-b" style={{ borderColor: 'var(--border)' }}>
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-10 pb-8 border-b px-4 lg:px-0" style={{ borderColor: 'var(--border)' }}>
           <div className="flex items-start gap-4">
-            <div className="w-14 h-14 rounded-2xl flex items-center justify-center font-bold text-xl shadow-sm" style={{ background: 'rgba(103,183,232,0.15)', color: '#67B7E8' }}>
+            <div className="w-14 h-14 rounded-2xl flex items-center justify-center font-bold text-xl shadow-sm flex-shrink-0" style={{ background: 'rgba(103,183,232,0.15)', color: '#67B7E8' }}>
               {loading ? '...' : client.name[0]?.toUpperCase()}
             </div>
             <div>
               <div className="flex items-center gap-3 flex-wrap">
-                <h1 className="text-3xl font-bold tracking-tight" style={{ color: 'var(--text)', fontFamily: "'Syne', sans-serif" }}>
+                <h1 className="text-2xl lg:text-3xl font-bold tracking-tight" style={{ color: 'var(--text)', fontFamily: "'Syne', sans-serif" }}>
                   {loading ? 'Cargando...' : client.name}
                 </h1>
-                <span className={`text-xs font-bold px-3 py-1 rounded-lg ${client.status === 'active' ? 'bg-[#2BA8A0]/10 text-[#2BA8A0]' : 'bg-red-500/10 text-red-500'}`}>
-                  {client.status === 'active' ? 'Activo' : 'Suspendido'}
-                </span>
-                <span className="text-xs font-bold px-3 py-1 rounded-lg capitalize" style={{ background: `${planColor[client.plan?.toLowerCase()] || 'var(--text2)'}15`, color: planColor[client.plan?.toLowerCase()] || 'var(--text2)' }}>
-                  Plan {client.plan}
-                </span>
+                <div className="flex gap-2 w-full sm:w-auto">
+                  <span className={`text-xs font-bold px-3 py-1 rounded-lg ${client.status === 'active' ? 'bg-[#2BA8A0]/10 text-[#2BA8A0]' : 'bg-red-500/10 text-red-500'}`}>
+                    {client.status === 'active' ? 'Activo' : 'Suspendido'}
+                  </span>
+                  <span className="text-xs font-bold px-3 py-1 rounded-lg capitalize" style={{ background: `${planColor[client.plan?.toLowerCase()] || 'var(--text2)'}15`, color: planColor[client.plan?.toLowerCase()] || 'var(--text2)' }}>
+                    Plan {client.plan}
+                  </span>
+                </div>
               </div>
               <p className="text-sm mt-1.5" style={{ color: 'var(--text2)' }}>{client.location || 'Sin ubicación registrada'}</p>
             </div>
           </div>
           
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
             {!isEditing ? (
               <button 
                 onClick={() => setIsEditing(true)} 
-                className="flex items-center gap-2 border rounded-xl px-5 py-3 text-sm font-bold transition-all hover:bg-black/5 dark:hover:bg-white/5" 
+                className="flex-1 lg:flex-none flex items-center justify-center gap-2 border rounded-xl px-5 py-3 text-sm font-bold transition-all hover:bg-black/5 dark:hover:bg-white/5" 
                 style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
               >
                 Editar Datos
@@ -614,28 +616,28 @@ export default function AdminClientDetail() {
             ) : (
               <button 
                 onClick={() => { setIsEditing(false); setLoadError('') }} 
-                className="flex items-center gap-2 border rounded-xl px-5 py-3 text-sm font-bold transition-all border-red-500/30 text-red-500 hover:bg-red-500/5"
+                className="flex-1 lg:flex-none flex items-center justify-center gap-2 border rounded-xl px-5 py-3 text-sm font-bold transition-all border-red-500/30 text-red-500 hover:bg-red-500/5"
               >
                 Cancelar Edición
               </button>
             )}
 
-            <button className="flex items-center gap-2 border rounded-xl px-4 py-3 text-sm font-bold transition-all hover:bg-red-500/5" style={{ borderColor: 'var(--border)', color: '#EF4444' }}>
-              <Ban size={16} /> Suspender Cliente
+            <button className="flex-1 lg:flex-none flex items-center justify-center gap-2 border rounded-xl px-4 py-3 text-sm font-bold transition-all hover:bg-red-500/5" style={{ borderColor: 'var(--border)', color: '#EF4444' }}>
+              <Ban size={16} /> <span className="hidden sm:inline">Suspender Cliente</span><span className="sm:hidden">Suspender</span>
             </button>
-            <button onClick={() => setShowAddDevice(true)} className="flex items-center gap-2 text-white px-5 py-3 rounded-xl text-sm font-bold transition-all hover:-translate-y-0.5" style={{ background: COLORS.primary, boxShadow: `0 4px 12px ${COLORS.primary}40` }}>
+            <button onClick={() => setShowAddDevice(true)} className="w-full lg:w-auto flex items-center justify-center gap-2 text-white px-5 py-3 rounded-xl text-sm font-bold transition-all hover:-translate-y-0.5" style={{ background: COLORS.primary, boxShadow: `0 4px 12px ${COLORS.primary}40` }}>
               <Plus size={16} strokeWidth={2.5} /> Enlazar Estación
             </button>
           </div>
         </div>
 
         {loadError && (
-          <div className="mb-6 rounded-xl px-4 py-3 text-sm font-medium" style={{ background: 'rgba(239,68,68,0.1)', color: '#EF4444' }}>
+          <div className="mb-6 mx-4 lg:mx-0 rounded-xl px-4 py-3 text-sm font-medium" style={{ background: 'rgba(239,68,68,0.1)', color: '#EF4444' }}>
             {loadError}
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 px-4 lg:px-0">
           
           <div className="lg:col-span-1 space-y-6">
             
@@ -799,44 +801,46 @@ export default function AdminClientDetail() {
             )}
 
             {tab === 'payments' && (
-              <div className="rounded-3xl border overflow-hidden shadow-sm" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b bg-black/[0.01] dark:bg-white/[0.01]" style={{ borderColor: 'var(--border)' }}>
-                      {['Fecha de Cobro','Monto Facturado','Estado','Comentarios',''].map(h => (
-                        <th key={h} className="text-xs font-bold px-6 py-4 uppercase tracking-wider" style={{ color: 'var(--text2)' }}>{h}</th>
+              <div className="rounded-3xl border shadow-sm overflow-hidden" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse min-w-[600px] lg:min-w-full">
+                    <thead>
+                      <tr className="border-b bg-black/[0.01] dark:bg-white/[0.01]" style={{ borderColor: 'var(--border)' }}>
+                        {['Fecha de Cobro','Monto Facturado','Estado','Comentarios',''].map(h => (
+                          <th key={h} className="text-xs font-bold px-6 py-4 uppercase tracking-wider" style={{ color: 'var(--text2)' }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {client.payments.map(p => (
+                        <tr key={p.id} className="border-b last:border-0" style={{ borderColor: 'var(--border)' }}>
+                          <td className="px-6 py-4 text-sm font-medium" style={{ color: 'var(--text)' }}>{new Date(p.date).toLocaleDateString('es-GT')}</td>
+                          <td className="px-6 py-4 text-sm font-bold" style={{ color: 'var(--text)' }}>Q{p.amount}</td>
+                          <td className="px-6 py-4">
+                            <span className={`text-xs font-bold px-2.5 py-1 rounded-md ${p.status === 'paid' ? 'bg-[#2BA8A0]/10 text-[#2BA8A0]' : 'bg-amber-500/10 text-amber-500'}`}>
+                              {p.status === 'paid' ? 'Pagado' : 'Pendiente'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-xs" style={{ color: 'var(--text2)' }}>{p.note || '—'}</td>
+                          <td className="px-6 py-4 text-right">
+                            {p.status === 'pending' && (
+                              <button onClick={() => setClient(prev => ({ ...prev, payments: prev.payments.map(x => x.id === p.id ? { ...x, status: 'paid' } : x) }))} className="flex items-center gap-1 bg-[#2BA8A0]/10 hover:bg-[#2BA8A0]/20 text-[#2BA8A0] px-3 py-1.5 rounded-lg text-xs font-bold transition-colors">
+                                <CheckCircle size={12} /> Validar pago
+                              </button>
+                            )}
+                          </td>
+                        </tr>
                       ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {client.payments.map(p => (
-                      <tr key={p.id} className="border-b last:border-0" style={{ borderColor: 'var(--border)' }}>
-                        <td className="px-6 py-4 text-sm font-medium" style={{ color: 'var(--text)' }}>{new Date(p.date).toLocaleDateString('es-GT')}</td>
-                        <td className="px-6 py-4 text-sm font-bold" style={{ color: 'var(--text)' }}>Q{p.amount}</td>
-                        <td className="px-6 py-4">
-                          <span className={`text-xs font-bold px-2.5 py-1 rounded-md ${p.status === 'paid' ? 'bg-[#2BA8A0]/10 text-[#2BA8A0]' : 'bg-amber-500/10 text-amber-500'}`}>
-                            {p.status === 'paid' ? 'Pagado' : 'Pendiente'}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-xs" style={{ color: 'var(--text2)' }}>{p.note || '—'}</td>
-                        <td className="px-6 py-4 text-right">
-                          {p.status === 'pending' && (
-                            <button onClick={() => setClient(prev => ({ ...prev, payments: prev.payments.map(x => x.id === p.id ? { ...x, status: 'paid' } : x) }))} className="flex items-center gap-1 bg-[#2BA8A0]/10 hover:bg-[#2BA8A0]/20 text-[#2BA8A0] px-3 py-1.5 rounded-lg text-xs font-bold transition-colors">
-                              <CheckCircle size={12} /> Validar pago
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                    {client.payments.length === 0 && (
-                      <tr>
-                        <td colSpan={5} className="text-center py-12 text-sm" style={{ color: 'var(--text2)' }}>
-                          No hay registros de transacciones para este cliente.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
+                      {client.payments.length === 0 && (
+                        <tr>
+                          <td colSpan={5} className="text-center py-12 text-sm" style={{ color: 'var(--text2)' }}>
+                            No hay registros de transacciones para este cliente.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
 

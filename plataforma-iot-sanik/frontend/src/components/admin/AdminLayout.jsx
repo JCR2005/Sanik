@@ -1,7 +1,8 @@
+import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import useAuthStore from '../../store/auth'
 import useThemeStore from '../../store/theme'
-import { LayoutDashboard, Users, Cpu, Settings, LogOut, Shield, FileText, ChevronRight, Sun, Moon } from 'lucide-react'
+import { LayoutDashboard, Users, Cpu, Settings, LogOut, Shield, FileText, ChevronRight, Sun, Moon, Menu, X } from 'lucide-react'
 
 const COLORS = {
   primary: "#67B7E8",
@@ -49,6 +50,7 @@ export default function AdminLayout({ children }) {
   const navigate  = useNavigate()
   const { user, logout } = useAuthStore()
   const { dark, toggle } = useThemeStore()
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   const handleLogout = () => { logout(); navigate('/login') }
   const isActive = (path) => path === '/admin'
@@ -57,23 +59,39 @@ export default function AdminLayout({ children }) {
 
   return (
     <div className="min-h-screen flex font-sans" style={{background:'var(--bg)'}}>
+      {/* Mobile Backdrop */}
+      {sidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden backdrop-blur-sm"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
-      <aside className="w-64 border-r flex flex-col fixed h-full z-40 transition-colors" style={{background:'var(--card)',borderColor:'var(--border)'}}>
+      <aside 
+        className={`w-64 border-r flex flex-col fixed h-full z-50 transition-transform duration-300 lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`} 
+        style={{background:'var(--card)',borderColor:'var(--border)'}}
+      >
         
         {/* Logo - Ahora centrado y limpio */}
-        <div className="p-5 border-b flex items-center justify-center" style={{borderColor:'var(--border)'}}>
+        <div className="p-5 border-b flex items-center justify-center relative" style={{borderColor:'var(--border)'}}>
           <div className="flex flex-col items-center gap-1">
             <AirSunBoxLogo />
             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full mt-1" style={{background: COLORS.primaryBg, color: COLORS.primary}}>
               Panel Admin
             </span>
           </div>
+          {/* Close button for mobile */}
+          <button onClick={() => setSidebarOpen(false)} className="lg:hidden absolute right-4 top-1/2 -translate-y-1/2 p-2" style={{color:'var(--text2)'}}>
+            <X size={20} />
+          </button>
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 p-3 space-y-1">
+        <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
           {NAV.map(({ label, icon: Icon, path }) => (
             <Link key={path} to={path}
+              onClick={() => setSidebarOpen(false)}
               className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all"
               style={{
                 background: isActive(path) ? COLORS.primaryBg : 'transparent',
@@ -114,9 +132,21 @@ export default function AdminLayout({ children }) {
       </aside>
 
       {/* Content */}
-      <main className="flex-1 ml-64 min-h-screen" style={{background:'var(--bg)'}}>
-        {children}
-      </main>
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Mobile Header */}
+        <header className="lg:hidden h-16 border-b flex items-center px-4 sticky top-0 z-30 backdrop-blur" style={{background:'var(--bg)90',borderColor:'var(--border)'}}>
+          <button onClick={() => setSidebarOpen(true)} className="p-2 -ml-2 rounded-lg" style={{color:'var(--text2)'}}>
+            <Menu size={24} />
+          </button>
+          <div className="ml-4 font-bold text-lg" style={{color:'var(--text)', fontFamily: 'Syne'}}>Sanik Admin</div>
+        </header>
+
+        <main className="flex-1 lg:ml-64 min-h-screen" style={{background:'var(--bg)'}}>
+          <div className="p-4 lg:p-8">
+            {children}
+          </div>
+        </main>
+      </div>
     </div>
   )
 }
