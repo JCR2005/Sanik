@@ -16,8 +16,9 @@ import AdminRequests from './pages/admin/Requests'
 
 const ADMIN_ROLES = ['admin', 'superadmin', 'worker']
 
+// ARREGLO 1: Cuando el cliente inicie sesión o se pierda, mandarlo a '/dashboard', no a '/devices'
 const getRedirectPath = (role) => {
-  return ADMIN_ROLES.includes(role) ? '/admin' : '/devices'
+  return ADMIN_ROLES.includes(role) ? '/admin' : '/dashboard'
 }
 
 function GuestRoute({ children }) {
@@ -28,7 +29,6 @@ function GuestRoute({ children }) {
   }
   return children
 }
-
 
 function ClientRoute({ children }) {
   const { token, user } = useAuthStore()
@@ -45,7 +45,7 @@ function AdminRoute({ children }) {
 
   if (!token) return <Navigate to="/login" replace />
   if (!ADMIN_ROLES.includes(user?.role)) {
-    return <Navigate to="/devices" replace />
+    return <Navigate to="/dashboard" replace />
   }
   return children
 }
@@ -58,13 +58,21 @@ export default function App() {
         <Route path="/" element={<GuestRoute><Landing /></GuestRoute>} />
         <Route path="/login" element={<GuestRoute><Login /></GuestRoute>} />
 
-        {/* Rutas exclusivas de Clientes */}
-        <Route path="/devices" element={<ClientRoute><Devices /></ClientRoute>} />
+        {/* --- RUTAS EXCLUSIVAS DE CLIENTES (CORREGIDAS) --- */}
+        
+        {/* ARREGLO 2: Ruta base del Dashboard agregada */}
+        <Route path="/dashboard" element={<ClientRoute><Dashboard /></ClientRoute>} />
+        
+        {/* Ruta para ver el dashboard específico de 1 dispositivo (la que ya tenías) */}
         <Route path="/dashboard/:id" element={<ClientRoute><Dashboard /></ClientRoute>} />
+        
+        {/* ARREGLO 3: Cambiamos /devices por /dispositivos para que encaje con tu menú lateral */}
+        <Route path="/dispositivos" element={<ClientRoute><Devices /></ClientRoute>} />
+        
         <Route path="/alerts/:deviceId" element={<ClientRoute><Alerts /></ClientRoute>} />
         <Route path="/profile" element={<ClientRoute><Profile /></ClientRoute>} />
 
-        {/* Rutas exclusivas de Admin */}
+        {/* --- RUTAS EXCLUSIVAS DE ADMIN (INTACTAS) --- */}
         <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
         <Route path="/admin/clientes" element={<AdminRoute><AdminClients /></AdminRoute>} />
         <Route path="/admin/clientes/:clientId" element={<AdminRoute><AdminClientDetail /></AdminRoute>} />
