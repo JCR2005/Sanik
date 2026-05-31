@@ -1,194 +1,159 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import Navbar from '../components/sanik/Navbar'
+import ClienteLayout from "../components/sanik/ClienteLayout";
 import { devices as devicesApi } from '../services/api'
-import useAuthStore from '../store/auth'
-import { Plus, Search, Wifi, WifiOff, MapPin, Clock, X } from 'lucide-react'
+import { Search, MapPin, Eye, Wifi, WifiOff, Server } from 'lucide-react'
 
-function DeviceCard({ device, onClick }) {
-  const isOnline = device.status === 'online'
-  return (
-    <div
-      onClick={() => onClick(device.id)}
-      className="bg-[#121A16] border border-[#1E2E28] hover:border-[#1D9E75]/40 rounded-2xl p-5 cursor-pointer transition-all hover:-translate-y-1 hover:shadow-lg hover:shadow-[#1D9E75]/5"
-    >
-      <div className="flex items-start justify-between mb-3">
-        <h3 className="text-white font-semibold">{device.name}</h3>
-  <span className={`flex items-center gap-1.5 text-xs px-2 py-1 rounded-full ${isOnline ? 'bg-[#1D9E75]/10 text-[#1D9E75]' : 'bg-[#DFF1FF] text-[#2E8ED3]'}`}>
-          {isOnline ? <Wifi size={10} /> : <WifiOff size={10} />}
-          {isOnline ? 'Online' : 'Offline'}
-        </span>
-      </div>
-
-      <div className="flex items-center gap-1.5 text-[#8FA899] text-sm mb-4">
-        <MapPin size={12} />
-        <span>{device.label}</span>
-      </div>
-
-      <div className="grid grid-cols-2 gap-2 text-sm">
-        <div className="bg-[#0A0F0D] rounded-lg p-2.5">
-          <div className="text-[#8FA899] text-xs mb-1">Temperatura</div>
-          <div className="text-white font-medium">{device.last_temp ?? '—'} °C</div>
-        </div>
-        <div className="bg-[#0A0F0D] rounded-lg p-2.5">
-          <div className="text-[#8FA899] text-xs mb-1">Humedad</div>
-          <div className="text-white font-medium">{device.last_hum ?? '—'} %</div>
-        </div>
-      </div>
-
-      {device.last_seen && (
-        <div className="flex items-center gap-1.5 text-[#8FA899] text-xs mt-3">
-          <Clock size={10} />
-          <span>Última conexión: {new Date(device.last_seen).toLocaleString('es-GT')}</span>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function AddDeviceModal({ onClose, onCreated }) {
-  const [form, setForm] = useState({ label: '', name: '', lat: '', lng: '' })
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    setLoading(true)
-    setError('')
-    try {
-      const device = await devicesApi.create({
-        ...form,
-        lat: parseFloat(form.lat) || null,
-        lng: parseFloat(form.lng) || null
-      })
-      onCreated(device)
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-[#121A16] border border-[#1E2E28] rounded-2xl p-6 w-full max-w-md">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-white font-bold text-lg">Nuevo dispositivo</h2>
-          <button onClick={onClose} className="text-[#8FA899] hover:text-white"><X size={20} /></button>
-        </div>
-
-        {error && <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-sm rounded-lg p-3 mb-4">{error}</div>}
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="text-[#8FA899] text-sm block mb-1.5">Nombre</label>
-            <input value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder="Estación Central" className="w-full bg-[#0A0F0D] border border-[#1E2E28] rounded-lg px-4 py-2.5 text-white text-sm outline-none focus:border-[#1D9E75]" required />
-          </div>
-          <div>
-            <label className="text-[#8FA899] text-sm block mb-1.5">Label (ID en URL)</label>
-            <input value={form.label} onChange={e => setForm({...form, label: e.target.value})} placeholder="estacion-central" className="w-full bg-[#0A0F0D] border border-[#1E2E28] rounded-lg px-4 py-2.5 text-white text-sm outline-none focus:border-[#1D9E75]" required />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-[#8FA899] text-sm block mb-1.5">Latitud</label>
-              <input value={form.lat} onChange={e => setForm({...form, lat: e.target.value})} placeholder="14.8347" type="number" step="any" className="w-full bg-[#0A0F0D] border border-[#1E2E28] rounded-lg px-4 py-2.5 text-white text-sm outline-none focus:border-[#1D9E75]" />
-            </div>
-            <div>
-              <label className="text-[#8FA899] text-sm block mb-1.5">Longitud</label>
-              <input value={form.lng} onChange={e => setForm({...form, lng: e.target.value})} placeholder="-91.5181" type="number" step="any" className="w-full bg-[#0A0F0D] border border-[#1E2E28] rounded-lg px-4 py-2.5 text-white text-sm outline-none focus:border-[#1D9E75]" />
-            </div>
-          </div>
-
-          <div className="flex gap-3 pt-2">
-            <button type="button" onClick={onClose} className="flex-1 border border-[#1E2E28] text-[#8FA899] hover:text-white py-2.5 rounded-lg text-sm transition-colors">Cancelar</button>
-            <button type="submit" disabled={loading} className="flex-1 bg-[#1D9E75] hover:bg-[#25C48F] text-white py-2.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-50">{loading ? 'Creando...' : 'Crear'}</button>
-          </div>
-        </form>
-      </div>
-    </div>
-  )
-}
-
-export default function Devices() {
+export default function ClientDevices() {
   const navigate = useNavigate()
-  const { user } = useAuthStore()
-  const [deviceList, setDeviceList] = useState([])
-  const [search, setSearch] = useState('')
-  const [showModal, setShowModal] = useState(false)
+  const [search,  setSearch]  = useState('')
+  const [devices, setDevices] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    devicesApi.list().then(setDeviceList).finally(() => setLoading(false))
+    devicesApi.list().then(setDevices).finally(() => setLoading(false))
   }, [])
 
-  const filtered = deviceList.filter(d =>
+  const filtered = devices.filter(d =>
     d.name.toLowerCase().includes(search.toLowerCase()) ||
     d.label.toLowerCase().includes(search.toLowerCase())
   )
 
-  const online = deviceList.filter(d => d.status === 'online').length
-
   return (
-    <div className="min-h-screen bg-[#0A0F0D]">
-      <Navbar />
-      {showModal && (
-        <AddDeviceModal
-          onClose={() => setShowModal(false)}
-          onCreated={(d) => { setDeviceList(prev => [d, ...prev]); setShowModal(false) }}
-        />
-      )}
-
-      <main className="max-w-7xl mx-auto px-4 py-8">
-        <div className="flex items-center justify-between mb-8">
+    <ClienteLayout>
+      <div
+        className="min-h-full px-10 py-10"
+        style={{
+          backgroundImage:
+            'radial-gradient(circle at 50% -20%, rgba(103,183,232,0.18) 0%, rgba(103,183,232,0.05) 30%, transparent 70%)',
+        }}
+      >
+        <div className="mb-10 flex items-end justify-between flex-wrap gap-4">
           <div>
-            <h1 className="text-white text-2xl font-bold">Mis Dispositivos</h1>
-            <p className="text-[#8FA899] text-sm mt-1">{deviceList.length} estaciones · {online} en línea</p>
+            <h1 className="text-3xl font-bold mb-2" style={{ color: 'var(--text)' }}>
+              Mis Estaciones
+            </h1>
+            <p className="text-sm" style={{ color: 'var(--text2)' }}>
+              Monitoreo y estado en tiempo real de todos tus equipos.
+            </p>
           </div>
-          {user?.role === 'admin' && (
-            <button onClick={() => setShowModal(true)} className="flex items-center gap-2 bg-[#1D9E75] hover:bg-[#25C48F] text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-colors">
-              <Plus size={16} /> Agregar dispositivo
-            </button>
-          )}
-        </div>
-
-        {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          {[
-            { label: 'Total', value: deviceList.length, color: 'text-white' },
-            { label: 'En línea', value: online, color: 'text-[#1D9E75]' },
-            { label: 'Sin conexión', value: deviceList.length - online, color: 'text-[#8FA899]' },
-            { label: 'Variables', value: 9, color: 'text-[#1D9E75]' },
-          ].map(s => (
-            <div key={s.label} className="bg-[#121A16] border border-[#1E2E28] rounded-xl p-4">
-              <div className="text-[#8FA899] text-xs mb-1">{s.label}</div>
-              <div className={`text-2xl font-bold ${s.color}`}>{s.value}</div>
+          <div className="flex gap-3">
+            <div className="relative">
+              <Search
+                size={18}
+                className="absolute left-3.5 top-1/2 -translate-y-1/2"
+                style={{ color: 'var(--text2)' }}
+              />
+              <input
+                type="text"
+                placeholder="Buscar estación..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-10 pr-4 py-2.5 rounded-xl text-sm border outline-none w-64 focus:ring-2 focus:ring-[#67B7E8]/20"
+                style={{
+                  background: 'var(--card)',
+                  borderColor: 'var(--border)',
+                  color: 'var(--text)',
+                }}
+              />
             </div>
-          ))}
+          </div>
         </div>
 
-        {/* Search */}
-        <div className="relative mb-6">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8FA899]" />
-          <input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Buscar dispositivos..."
-            className="w-full max-w-md bg-[#121A16] border border-[#1E2E28] rounded-lg pl-10 pr-4 py-2.5 text-white text-sm outline-none focus:border-[#1D9E75] transition-colors"
-          />
-        </div>
+        <div className="rounded-2xl border overflow-hidden" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr style={{ background: 'rgba(0,0,0,0.02)' }} className="dark:bg-white/[0.02] border-b border-[var(--border)]">
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text2)' }}>Estación</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text2)' }}>ID / Etiqueta</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text2)' }}>Estado</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text2)' }}>Última transmisión</th>
+                <th className="px-6 py-4 text-right"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-8 text-center text-sm" style={{ color: 'var(--text2)' }}>
+                    Cargando estaciones...
+                  </td>
+                </tr>
+              ) : filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-12 text-center">
+                    <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>
+                      No se encontraron resultados
+                    </p>
+                  </td>
+                </tr>
+              ) : (
+                filtered.map((dev) => (
+                  <tr
+                    key={dev.id}
+                    className="border-b last:border-0 hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors"
+                    style={{ borderColor: 'var(--border)' }}
+                  >
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                          style={{ background: 'rgba(103,183,232,0.12)', color: '#67B7E8' }}
+                        >
+                          <Server size={20} />
+                        </div>
+                        <div>
+                          <div className="text-sm font-bold" style={{ color: 'var(--text)' }}>
+                            {dev.name}
+                          </div>
+                          {dev.location && (
+                            <div className="text-xs mt-0.5 flex items-center gap-1" style={{ color: 'var(--text2)' }}>
+                              <MapPin size={12} /> {dev.location}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </td>
 
-        {loading ? (
-          <div className="text-center text-[#8FA899] py-12">Cargando dispositivos...</div>
-        ) : filtered.length > 0 ? (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {filtered.map(d => <DeviceCard key={d.id} device={d} onClick={(id) => navigate(`/dashboard/${id}`)} />)}
-          </div>
-        ) : (
-          <div className="text-center text-[#8FA899] py-12">
-            {deviceList.length === 0 ? 'No hay dispositivos todavía.' : 'No se encontraron resultados.'}
-          </div>
-        )}
-      </main>
-    </div>
+                    <td className="px-6 py-4 text-sm font-mono opacity-80" style={{ color: 'var(--text2)' }}>
+                      {dev.label}
+                    </td>
+
+                    <td className="px-6 py-4">
+                      <span
+                        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${
+                          dev.status === 'online'
+                            ? 'bg-[#1D9E75]/10 text-[#1D9E75]'
+                            : 'bg-[#DFF1FF] text-[#2E8ED3]'
+                        }`}
+                      >
+                        {dev.status === 'online' ? <Wifi size={12} /> : <WifiOff size={12} />}
+                        {dev.status === 'online' ? 'En línea' : 'Sin señal'}
+                      </span>
+                    </td>
+
+                    <td className="px-6 py-4 text-sm" style={{ color: 'var(--text2)' }}>
+                      {dev.last_seen
+                        ? new Date(dev.last_seen).toLocaleString('es-GT')
+                        : '—'}
+                    </td>
+
+                    <td className="px-6 py-4 text-right">
+                      <button
+                        onClick={() => navigate(`/dashboard/${dev.id}`)}
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all hover:-translate-y-0.5"
+                        style={{ background: 'rgba(103,183,232,0.12)', color: '#67B7E8' }}
+                      >
+                        <Eye size={14} />
+                        Ver detalle
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </ClienteLayout>
   )
 }
