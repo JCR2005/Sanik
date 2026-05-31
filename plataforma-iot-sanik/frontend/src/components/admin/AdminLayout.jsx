@@ -63,28 +63,48 @@ export default function AdminLayout({ children }) {
 
   return (
     <div className="min-h-screen flex font-sans selection:bg-[#67B7E8] selection:text-white" style={{background:'var(--bg)'}}>
-      
-      {/* Sidebar - Eliminamos el borde duro derecho y usamos una sombra sutil */}
-      <aside className="w-[280px] flex flex-col fixed h-full z-40 transition-colors shadow-[4px_0_24px_rgba(0,0,0,0.02)]" style={{background:'var(--card)'}}>
-        
+
+      {/* Mobile Backdrop */}
+      {sidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 lg:hidden transition-opacity"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Sidebar - Ahora con clases responsivas */}
+      <aside 
+        className={`w-[280px] flex flex-col fixed h-full z-50 transition-all duration-300 shadow-[4px_0_24px_rgba(0,0,0,0.02)] lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`} 
+        style={{background:'var(--card)'}}
+      >
+
         {/* Header Logo */}
-        <div className="pt-8 pb-6 px-8 flex flex-col items-start gap-2">
+        <div className="pt-8 pb-6 px-8 flex flex-col items-start gap-2 relative">
            <div className="logo-float-admin">
               <AirSunBoxLogo size={160} />
             </div>
           <span className="text-[10px] font-bold px-2.5 py-1 rounded-md tracking-wide uppercase" style={{background: COLORS.primaryHover, color: COLORS.primary}}>
             Panel de Control
           </span>
+
+          {/* Botón cerrar para móvil */}
+          <button 
+            onClick={() => setSidebarOpen(false)}
+            className="lg:hidden absolute right-4 top-8 p-2 text-[var(--text2)]"
+          >
+            <X size={20} />
+          </button>
         </div>
 
         {/* Navegación */}
         <nav className="flex-1 px-4 py-2 space-y-1.5 overflow-y-auto">
-          {NAV.map(({ label, icon: Icon, path }) => {
+          {filteredNav.map(({ label, icon: Icon, path }) => {
             const active = isActive(path);
             return (
               <Link 
                 key={path} 
                 to={path}
+                onClick={() => setSidebarOpen(false)}
                 className="flex items-center gap-3 px-4 py-3 rounded-2xl text-sm transition-all duration-200 group"
                 style={{
                   background: active ? COLORS.primaryActive : 'transparent',
@@ -107,7 +127,7 @@ export default function AdminLayout({ children }) {
         {/* Footer de Usuario - Todo en una "tarjeta" integrada */}
         <div className="p-4">
           <div className="rounded-2xl p-4 flex flex-col gap-4 border" style={{ background: 'var(--bg)', borderColor: 'var(--border)' }}>
-            
+
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold shadow-sm" style={{background: COLORS.primary, color: '#fff'}}>
                 {user?.email?.[0]?.toUpperCase() || 'S'}
@@ -125,7 +145,7 @@ export default function AdminLayout({ children }) {
                 {dark ? <Sun size={14} /> : <Moon size={14} />}
                 {dark ? 'Claro' : 'Oscuro'}
               </button>
-              
+
               <div className="w-px h-4" style={{ background: 'var(--border)' }} />
 
               <button onClick={handleLogout} className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-semibold transition-colors hover:bg-red-500/10 hover:text-red-500" style={{color:'var(--text2)'}}>
@@ -139,9 +159,24 @@ export default function AdminLayout({ children }) {
       </aside>
 
       {/* Contenedor Principal */}
-      <main className="flex-1 ml-[280px] min-h-screen relative overflow-hidden" style={{background:'var(--bg)'}}>
-        {children}
-      </main>
+      <div className="flex-1 flex flex-col min-w-0 min-h-screen lg:ml-[280px]" style={{background:'var(--bg)'}}>
+
+        {/* Header móvil */}
+        <header className="lg:hidden h-16 border-b flex items-center px-6 sticky top-0 z-30 backdrop-blur-md" style={{background:'var(--bg)dd', borderColor:'var(--border)'}}>
+          <button 
+            onClick={() => setSidebarOpen(true)}
+            className="p-2 -ml-2 rounded-xl"
+            style={{color:'var(--text2)'}}
+          >
+            <Menu size={24} />
+          </button>
+          <div className="ml-4 font-bold text-lg" style={{color:'var(--text)', fontFamily: 'Syne'}}>Sanik Admin</div>
+        </header>
+
+        <main className="flex-1 relative overflow-x-hidden p-6 lg:p-10">
+          {children}
+        </main>
+      </div>
     </div>
   )
 }

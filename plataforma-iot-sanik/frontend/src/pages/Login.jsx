@@ -64,7 +64,7 @@ export default function Login() {
     try {
       const res = await auth.login(form.email, form.password)
       login(res.token, res.user, res.org)
-      navigate(res.redirect || '/devices')
+      navigate(res.redirect || '/dispositivos')
     } catch (err) {
       setError(err.response?.data?.message || err.message || 'Credenciales incorrectas')
     } finally {

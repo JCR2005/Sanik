@@ -31,8 +31,8 @@ function ProtectedRoute({ children, allowedRoles, redirectTo }) {
 
   // 2. Si hay roles permitidos definidos, verificar
   if (allowedRoles && !allowedRoles.includes(user?.role)) {
-    // Si es un admin intentando entrar a zona cliente, o viceversa, redirigir a su zona correspondiente
-    const defaultRedirect = ADMIN_ROLES.includes(user?.role) ? '/admin' : '/dashboard'
+    // Redirección inteligente según el rol
+    const defaultRedirect = ADMIN_ROLES.includes(user?.role) ? '/admin' : '/dispositivos'
     return <Navigate to={redirectTo || defaultRedirect} replace />
   }
 
@@ -46,7 +46,7 @@ function PublicRoute({ children }) {
   const { token, user } = useAuthStore()
 
   if (token) {
-    const dashboard = ADMIN_ROLES.includes(user?.role) ? '/admin' : '/devices'
+    const dashboard = ADMIN_ROLES.includes(user?.role) ? '/admin' : '/dispositivos'
     return <Navigate to={dashboard} replace />
   }
   return children
