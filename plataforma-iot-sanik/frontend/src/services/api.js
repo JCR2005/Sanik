@@ -80,4 +80,12 @@ export const organizations = {
   create: (data) => request('/organizations', { method: 'POST', body: JSON.stringify(data) }),
   update: (id, data) => request(`/organizations/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   updateStatus: (id, status) => request(`/organizations/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
+  revealCredentials: (id, adminPassword) => request(`/organizations/${id}/reveal-credentials`, {
+    method: 'POST',
+    body: JSON.stringify({ adminPassword })
+  }),
+  resetPassword: (id) => request(`/organizations/${id}/reset-client-password`, {
+    method: 'POST',
+    body: JSON.stringify({})
+  })
 }

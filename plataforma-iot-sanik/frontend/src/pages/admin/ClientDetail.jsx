@@ -36,18 +36,7 @@ function CredentialsCard({ clientId }) {
     setLoading(true)
     setError('')
     try {
-      const token = localStorage.getItem('sanik_token')
-      const response = await fetch(`/api/organizations/${clientId}/reveal-credentials`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ adminPassword })
-      })
-      const data = await response.json()
-      if (!response.ok) throw new Error(data.error || 'Error al validar')
-      
+      const data = await orgsApi.revealCredentials(clientId, adminPassword)
       setRevealed(data)
       setShowPrompt(false)
       setAdminPassword('')
@@ -62,18 +51,7 @@ function CredentialsCard({ clientId }) {
     setResetLoading(true)
     setError('')
     try {
-      const token = localStorage.getItem('sanik_token')
-      const response = await fetch(`/api/organizations/${clientId}/reset-client-password`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({})
-      })
-      const data = await response.json()
-      if (!response.ok) throw new Error(data.error || 'Error al resetear')
-      
+      const data = await orgsApi.resetPassword(clientId)
       setRevealed({
         email: data.email,
         password: data.password
@@ -204,12 +182,7 @@ function AddDeviceModal({ clientId, onClose, onAdd }) {
   useEffect(() => {
     const fetchCatalog = async () => {
       try {
-        const token = localStorage.getItem('sanik_token')
-        const response = await fetch('/api/devices/catalog', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        })
-        if (!response.ok) throw new Error('Error al obtener catálogo')
-        const data = await response.json()
+        const data = await devicesApi.catalog()
         setCatalog(data)
         setSelectedVariables(data.map(v => v.label))
       } catch (err) {
@@ -531,18 +504,7 @@ export default function AdminClientDetail() {
     setSaveLoading(true)
     setLoadError('')
     try {
-      const token = localStorage.getItem('sanik_token')
-      const response = await fetch(`/api/organizations/${clientId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(editForm)
-      })
-
-      const data = await response.json()
-      if (!response.ok) throw new Error(data.error || 'Error al guardar los cambios')
+      const data = await orgsApi.update(clientId, editForm)
 
       setClient(prev => ({
         ...prev,
@@ -551,7 +513,7 @@ export default function AdminClientDetail() {
         phone: data.phone,
         location: data.location,
         plan: data.plan,
-        contactName: data.contactName || editForm.contactName || 'No registrado',
+        contactName: data.contact_name || data.contactName || editForm.contactName || 'No registrado',
         nit: data.nit || editForm.nit || 'No registrado',
         notes: data.notes || editForm.notes
       }))
