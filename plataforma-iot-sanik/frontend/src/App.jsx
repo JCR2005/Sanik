@@ -16,36 +16,38 @@ import AdminRequests from './pages/admin/Requests'
 
 const ADMIN_ROLES = ['admin', 'superadmin', 'worker']
 
-const getRedirectPath = (role) => {
-  return ADMIN_ROLES.includes(role) ? '/admin' : '/devices'
+/**
+ * Componente genérico para proteger rutas.
+ * @param {Array} allowedRoles - Roles que pueden acceder. Si se omite, basta con estar autenticado.
+ * @param {string} redirectTo - Ruta a la que redirigir si no tiene permisos (por defecto /login o /devices).
+ */
+function ProtectedRoute({ children, allowedRoles, redirectTo }) {
+  const { token, user } = useAuthStore()
+
+  // 1. Si no hay token, al login siempre
+  if (!token) {
+    return <Navigate to="/login" replace />
+  }
+
+  // 2. Si hay roles permitidos definidos, verificar
+  if (allowedRoles && !allowedRoles.includes(user?.role)) {
+    // Si es un admin intentando entrar a zona cliente, o viceversa, redirigir a su zona correspondiente
+    const defaultRedirect = ADMIN_ROLES.includes(user?.role) ? '/admin' : '/devices'
+    return <Navigate to={redirectTo || defaultRedirect} replace />
+  }
+
+  return children
 }
 
-function GuestRoute({ children }) {
+/**
+ * Componente para rutas que SOLO pueden verse si NO estás logueado (Landing, Login).
+ */
+function PublicRoute({ children }) {
   const { token, user } = useAuthStore()
-  
+
   if (token) {
-    return <Navigate to={getRedirectPath(user?.role)} replace />
-  }
-  return children
-}
-
-
-function ClientRoute({ children }) {
-  const { token, user } = useAuthStore()
-
-  if (!token) return <Navigate to="/login" replace />
-  if (ADMIN_ROLES.includes(user?.role)) {
-    return <Navigate to="/admin" replace />
-  }
-  return children
-}
-
-function AdminRoute({ children }) {
-  const { token, user } = useAuthStore()
-
-  if (!token) return <Navigate to="/login" replace />
-  if (!ADMIN_ROLES.includes(user?.role)) {
-    return <Navigate to="/devices" replace />
+    const dashboard = ADMIN_ROLES.includes(user?.role) ? '/admin' : '/devices'
+    return <Navigate to={dashboard} replace />
   }
   return children
 }
@@ -54,24 +56,58 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Rutas Públicas / Invitados */}
-        <Route path="/" element={<GuestRoute><Landing /></GuestRoute>} />
-        <Route path="/login" element={<GuestRoute><Login /></GuestRoute>} />
+        {/* Rutas Públicas */}
+        <Route path="/"      element={<PublicRoute><Landing /></PublicRoute>} />
+        <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
 
-        {/* Rutas exclusivas de Clientes */}
-        <Route path="/devices" element={<ClientRoute><Devices /></ClientRoute>} />
-        <Route path="/dashboard/:id" element={<ClientRoute><Dashboard /></ClientRoute>} />
-        <Route path="/alerts/:deviceId" element={<ClientRoute><Alerts /></ClientRoute>} />
-        <Route path="/profile" element={<ClientRoute><Profile /></ClientRoute>} />
+        {/* Rutas de Clientes (Solo 'client') */}
+        <Route path="/devices"           element={<ProtectedRoute allowedRoles={['client']}><Devices /></ProtectedRoute>} />
+        <Route path="/dashboard/:id"     element={<ProtectedRoute allowedRoles={['client']}><Dashboard /></ProtectedRoute>} />
+        <Route path="/alerts/:deviceId"  element={<ProtectedRoute allowedRoles={['client']}><Alerts /></ProtectedRoute>} />
+        <Route path="/profile"           element={<ProtectedRoute><Profile /></ProtectedRoute>} />
 
-        {/* Rutas exclusivas de Admin */}
-        <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
-        <Route path="/admin/clientes" element={<AdminRoute><AdminClients /></AdminRoute>} />
-        <Route path="/admin/clientes/:clientId" element={<AdminRoute><AdminClientDetail /></AdminRoute>} />
-        <Route path="/admin/clientes/:clientId/dispositivo/:deviceId" element={<AdminRoute><AdminDeviceDetail /></AdminRoute>} />
-        <Route path="/admin/equipo" element={<AdminRoute><AdminTeam /></AdminRoute>} />
-        <Route path="/admin/variables" element={<AdminRoute><AdminVariables /></AdminRoute>} />
-        <Route path="/admin/solicitudes" element={<AdminRoute><AdminRequests /></AdminRoute>} />
+        {/* Rutas de Administración (Admin, Superadmin, Worker) */}
+        <Route path="/admin" element={
+          <ProtectedRoute allowedRoles={ADMIN_ROLES}>
+            <AdminDashboard />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/admin/clientes" element={
+          <ProtectedRoute allowedRoles={['admin', 'superadmin']}>
+            <AdminClients />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/admin/clientes/:clientId" element={
+          <ProtectedRoute allowedRoles={['admin', 'superadmin']}>
+            <AdminClientDetail />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/admin/clientes/:clientId/dispositivo/:deviceId" element={
+          <ProtectedRoute allowedRoles={['admin', 'superadmin']}>
+            <AdminDeviceDetail />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/admin/equipo" element={
+          <ProtectedRoute allowedRoles={['superadmin']}>
+            <AdminTeam />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/admin/variables" element={
+          <ProtectedRoute allowedRoles={['admin', 'superadmin']}>
+            <AdminVariables />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/admin/solicitudes" element={
+          <ProtectedRoute allowedRoles={ADMIN_ROLES}>
+            <AdminRequests />
+          </ProtectedRoute>
+        } />
 
         {/* Comodín de redirección */}
         <Route path="*" element={<Navigate to="/" replace />} />

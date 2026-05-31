@@ -38,11 +38,11 @@ const AirSunBoxLogo = ({ size = 110 }) => (
 )
 
 const NAV = [
-  { label: 'Dashboard',   icon: LayoutDashboard, path: '/admin' },
-  { label: 'Clientes',    icon: Users,           path: '/admin/clientes' },
-  { label: 'Solicitudes', icon: FileText,        path: '/admin/solicitudes' },
-  { label: 'Variables',   icon: Settings,        path: '/admin/variables' },
-  { label: 'Equipo',      icon: Shield,          path: '/admin/equipo' },
+  { label: 'Dashboard',   icon: LayoutDashboard, path: '/admin', roles: ['superadmin', 'admin', 'worker'] },
+  { label: 'Clientes',    icon: Users,           path: '/admin/clientes', roles: ['superadmin', 'admin'] },
+  { label: 'Solicitudes', icon: FileText,        path: '/admin/solicitudes', roles: ['superadmin', 'admin', 'worker'] },
+  { label: 'Variables',   icon: Settings,        path: '/admin/variables', roles: ['superadmin', 'admin'] },
+  { label: 'Equipo',      icon: Shield,          path: '/admin/equipo', roles: ['superadmin'] },
 ]
 
 export default function AdminLayout({ children }) {
@@ -56,6 +56,9 @@ export default function AdminLayout({ children }) {
   const isActive = (path) => path === '/admin'
     ? location.pathname === '/admin'
     : location.pathname.startsWith(path)
+
+  // Filtrar navegación por rol
+  const filteredNav = NAV.filter(item => item.roles.includes(user?.role))
 
   return (
     <div className="min-h-screen flex font-sans" style={{background:'var(--bg)'}}>
@@ -89,7 +92,7 @@ export default function AdminLayout({ children }) {
 
         {/* Nav */}
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-          {NAV.map(({ label, icon: Icon, path }) => (
+          {filteredNav.map(({ label, icon: Icon, path }) => (
             <Link key={path} to={path}
               onClick={() => setSidebarOpen(false)}
               className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all"
