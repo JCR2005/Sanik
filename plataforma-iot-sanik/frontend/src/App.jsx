@@ -32,7 +32,7 @@ function ProtectedRoute({ children, allowedRoles, redirectTo }) {
   // 2. Si hay roles permitidos definidos, verificar
   if (allowedRoles && !allowedRoles.includes(user?.role)) {
     // Si es un admin intentando entrar a zona cliente, o viceversa, redirigir a su zona correspondiente
-    const defaultRedirect = ADMIN_ROLES.includes(user?.role) ? '/admin' : '/devices'
+    const defaultRedirect = ADMIN_ROLES.includes(user?.role) ? '/admin' : '/dashboard'
     return <Navigate to={redirectTo || defaultRedirect} replace />
   }
 
@@ -60,11 +60,20 @@ export default function App() {
         <Route path="/"      element={<PublicRoute><Landing /></PublicRoute>} />
         <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
 
-        {/* Rutas de Clientes (Solo 'client') */}
-        <Route path="/devices"           element={<ProtectedRoute allowedRoles={['client']}><Devices /></ProtectedRoute>} />
-        <Route path="/dashboard/:id"     element={<ProtectedRoute allowedRoles={['client']}><Dashboard /></ProtectedRoute>} />
-        <Route path="/alerts/:deviceId"  element={<ProtectedRoute allowedRoles={['client']}><Alerts /></ProtectedRoute>} />
-        <Route path="/profile"           element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+        {/* --- RUTAS EXCLUSIVAS DE CLIENTES (CORREGIDAS) --- */}
+        
+        {/* ARREGLO 2: Ruta base del Dashboard agregada */}
+        <Route path="/dashboard" element={<ProtectedRoute allowedRoles={['client']}><Dashboard /></ProtectedRoute>} />
+        
+        {/* Ruta para ver el dashboard específico de 1 dispositivo (la que ya tenías) */}
+        <Route path="/dashboard/:id" element={<ProtectedRoute allowedRoles={['client']}><Dashboard /></ProtectedRoute>} />
+        
+        {/* ARREGLO 3: Cambiamos /devices por /dispositivos para que encaje con tu menú lateral */}
+        <Route path="/dispositivos" element={<ProtectedRoute allowedRoles={['client']}><Devices /></ProtectedRoute>} />
+        {/* <Route path="/devices"           element={<ProtectedRoute allowedRoles={['client']}><Devices /></ProtectedRoute>} /> */}
+
+        <Route path="/alerts/:deviceId" element={<ProtectedRoute allowedRoles={['client']}><Alerts /></ProtectedRoute>} />
+        <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
 
         {/* Rutas de Administración (Admin, Superadmin, Worker) */}
         <Route path="/admin" element={
