@@ -179,7 +179,7 @@ export default function AdminDeviceDetail() {
 
   return (
     <AdminLayout>
-      <div className="p-8">
+      <div className="p-4 lg:p-8">
         {loading ? (
           <div className="flex items-center justify-center h-64" style={{ color: 'var(--text2)' }}>Cargando...</div>
         ) : (

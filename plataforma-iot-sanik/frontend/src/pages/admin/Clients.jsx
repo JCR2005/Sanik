@@ -258,12 +258,12 @@ export default function AdminClients() {
       )}
       
       <div 
-        className="min-h-full px-10 py-10"
+        className="min-h-full py-4 lg:py-6"
         style={{ backgroundImage: 'radial-gradient(circle at 50% -20%, rgba(103,183,232,0.1) 0%, transparent 50%)' }}
       >
-        <div className="flex items-end justify-between mb-10">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-10">
           <div className="flex flex-col gap-1">
-            <h1 className="text-4xl font-bold tracking-tight" style={{ color: 'var(--text)', fontFamily: "'Syne', sans-serif" }}>
+            <h1 className="text-3xl lg:text-4xl font-bold tracking-tight" style={{ color: 'var(--text)', fontFamily: "'Syne', sans-serif" }}>
               Gestión de Clientes
             </h1>
             <p className="text-base mt-2" style={{ color: 'var(--text2)' }}>
@@ -272,7 +272,7 @@ export default function AdminClients() {
           </div>
           <button 
             onClick={() => setShowModal(true)} 
-            className="flex items-center gap-2 text-white px-5 py-3 rounded-xl text-sm font-bold transition-all hover:-translate-y-0.5"
+            className="flex items-center justify-center gap-2 text-white px-5 py-3 rounded-xl text-sm font-bold transition-all hover:-translate-y-0.5"
             style={{ background: COLORS.primary, boxShadow: `0 4px 12px ${COLORS.primary}40` }}
           >
             <Plus size={18} strokeWidth={2.5} /> Registrar cliente
@@ -292,87 +292,89 @@ export default function AdminClients() {
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Buscar organización por nombre o correo electrónico..."
+            placeholder="Buscar organización..."
             className="w-full max-w-xl border rounded-2xl pl-12 pr-4 py-3.5 text-sm outline-none transition-all focus:ring-4 focus:ring-[#67B7E8]/10 focus:border-[#67B7E8]"
             style={{ background: 'var(--card)', borderColor: 'var(--border)', color: 'var(--text)', boxShadow: '0 2px 10px rgba(0,0,0,0.01)' }}
           />
         </div>
 
-        {/* Tabla de Clientes */}
-        <div className="rounded-3xl overflow-hidden shadow-sm border" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="border-b bg-black/[0.01] dark:bg-white/[0.01]" style={{ borderColor: 'var(--border)' }}>
-                {['Organización', 'Plan actual', 'Dispositivos', 'Estado', 'Suscripción hasta', ''].map(h => (
-                  <th key={h} className="text-xs font-bold px-6 py-4 uppercase tracking-wider" style={{ color: 'var(--text2)' }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map(c => (
-                <tr 
-                  key={c.id} 
-                  onClick={() => navigate(`/admin/clientes/${c.id}`)}
-                  className="border-b last:border-0 cursor-pointer transition-all hover:bg-black/[0.02] dark:hover:bg-white/[0.02]"
-                  style={{ borderColor: 'var(--border)' }}
-                >
-                  <td className="px-6 py-5">
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-2xl flex items-center justify-center font-bold text-base shadow-sm" style={{ background: 'rgba(103,183,232,0.15)', color: '#67B7E8' }}>
-                        {c.name[0].toUpperCase()}
+        {/* Tabla de Clientes - Mobile Scroll */}
+        <div className="rounded-3xl shadow-sm border overflow-hidden" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse min-w-[800px] lg:min-w-full">
+              <thead>
+                <tr className="border-b bg-black/[0.01] dark:bg-white/[0.01]" style={{ borderColor: 'var(--border)' }}>
+                  {['Organización', 'Plan actual', 'Dispositivos', 'Estado', 'Suscripción hasta', ''].map(h => (
+                    <th key={h} className="text-xs font-bold px-6 py-4 uppercase tracking-wider" style={{ color: 'var(--text2)' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map(c => (
+                  <tr 
+                    key={c.id} 
+                    onClick={() => navigate(`/admin/clientes/${c.id}`)}
+                    className="border-b last:border-0 cursor-pointer transition-all hover:bg-black/[0.02] dark:hover:bg-white/[0.02]"
+                    style={{ borderColor: 'var(--border)' }}
+                  >
+                    <td className="px-6 py-5">
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-2xl flex items-center justify-center font-bold text-base shadow-sm flex-shrink-0" style={{ background: 'rgba(103,183,232,0.15)', color: '#67B7E8' }}>
+                          {c.name[0].toUpperCase()}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-sm font-bold truncate max-w-[150px] lg:max-w-none" style={{ color: 'var(--text)' }}>{c.name}</div>
+                          <div className="text-xs font-medium mt-0.5 truncate max-w-[150px] lg:max-w-none" style={{ color: 'var(--text2)' }}>{c.email || 'Sin correo registrado'}</div>
+                        </div>
                       </div>
-                      <div>
-                        <div className="text-sm font-bold" style={{ color: 'var(--text)' }}>{c.name}</div>
-                        <div className="text-xs font-medium mt-0.5" style={{ color: 'var(--text2)' }}>{c.email || 'Sin correo registrado'}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-5">
-                    <span className="text-sm font-bold px-3 py-1.5 rounded-lg" style={{ background: `${planColor[c.plan?.toLowerCase()] || 'var(--text2)'}15`, color: planColor[c.plan?.toLowerCase()] || 'var(--text2)' }}>
-                      {c.plan}
-                    </span>
-                  </td>
-                  <td className="px-6 py-5">
-                    <div className="flex flex-col">
-                      <span className="text-sm font-bold" style={{ color: 'var(--text)' }}>
-                        {Number(c.devices) === 0 ? 'Sin dispositivos' : `${c.activeDevices} de ${c.devices}`}
+                    </td>
+                    <td className="px-6 py-5">
+                      <span className="text-sm font-bold px-3 py-1.5 rounded-lg" style={{ background: `${planColor[c.plan?.toLowerCase()] || 'var(--text2)'}15`, color: planColor[c.plan?.toLowerCase()] || 'var(--text2)' }}>
+                        {c.plan}
                       </span>
-                      {Number(c.devices) > 0 && (
-                        <span className="text-xs font-medium" style={{ color: 'var(--text2)' }}>
-                          En línea
+                    </td>
+                    <td className="px-6 py-5">
+                      <div className="flex flex-col">
+                        <span className="text-sm font-bold" style={{ color: 'var(--text)' }}>
+                          {Number(c.devices) === 0 ? 'Sin dispositivos' : `${c.activeDevices} de ${c.devices}`}
                         </span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-6 py-5">
-                    <span className={`text-xs font-bold px-3 py-1.5 rounded-lg ${statusBadge[c.status]}`}>
-                      {statusLabel[c.status]}
-                    </span>
-                  </td>
-                  <td className="px-6 py-5 text-sm font-medium" style={{ color: 'var(--text2)' }}>
-                    {c.paidUntil ? new Intl.DateTimeFormat('es-GT', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(c.paidUntil)) : 'Ilimitado'}
-                  </td>
-                  <td className="px-6 py-5 text-right">
-                    <div className="inline-flex p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
-                      <ChevronRight size={18} style={{ color: 'var(--text2)' }} />
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              
-              {filtered.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center">
-                    <div className="inline-flex items-center justify-center w-12 h-12 rounded-full mb-3" style={{ background: 'var(--border)' }}>
-                      <Search size={20} style={{ color: 'var(--text2)' }} />
-                    </div>
-                    <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>No se encontraron resultados</p>
-                    <p className="text-xs mt-1" style={{ color: 'var(--text2)' }}>Intenta con otro término de búsqueda.</p>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                        {Number(c.devices) > 0 && (
+                          <span className="text-xs font-medium" style={{ color: 'var(--text2)' }}>
+                            En línea
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-5">
+                      <span className={`text-xs font-bold px-3 py-1.5 rounded-lg ${statusBadge[c.status]}`}>
+                        {statusLabel[c.status]}
+                      </span>
+                    </td>
+                    <td className="px-6 py-5 text-sm font-medium" style={{ color: 'var(--text2)' }}>
+                      {c.paidUntil ? new Intl.DateTimeFormat('es-GT', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(c.paidUntil)) : 'Ilimitado'}
+                    </td>
+                    <td className="px-6 py-5 text-right">
+                      <div className="inline-flex p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
+                        <ChevronRight size={18} style={{ color: 'var(--text2)' }} />
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                
+                {filtered.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-12 text-center">
+                      <div className="inline-flex items-center justify-center w-12 h-12 rounded-full mb-3" style={{ background: 'var(--border)' }}>
+                        <Search size={20} style={{ color: 'var(--text2)' }} />
+                      </div>
+                      <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>No se encontraron resultados</p>
+                      <p className="text-xs mt-1" style={{ color: 'var(--text2)' }}>Intenta con otro término de búsqueda.</p>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </AdminLayout>

@@ -23,11 +23,12 @@ export default function AdminRequests() {
 
   return (
     <AdminLayout>
-      <div className="p-8">
+      <div className="p-4 lg:p-8">
         <div className="mb-8">
-          <h1 className="text-white text-2xl font-bold">Solicitudes</h1>
-          <p className="text-[#8FA899] text-sm mt-1">{requests.filter(r => r.status === 'pending').length} solicitudes pendientes</p>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--text)' }}>Solicitudes</h1>
+          <p className="text-sm mt-1" style={{ color: 'var(--text2)' }}>{requests.filter(r => r.status === 'pending').length} solicitudes pendientes</p>
         </div>
+
 
         {requests.length === 0 ? (
           <div className="text-center text-[#8FA899] py-16 bg-[#121A16] border border-[#1E2E28] rounded-2xl">
@@ -67,14 +68,14 @@ export default function AdminRequests() {
                   </div>
 
                   {r.status === 'pending' || r.status === 'in_review' ? (
-                    <div className="flex gap-2">
-                      <button onClick={() => updateStatus(r.id, 'approved')} className="flex items-center gap-1.5 bg-[#1D9E75]/10 hover:bg-[#1D9E75]/20 text-[#1D9E75] px-3 py-2 rounded-lg text-sm font-medium transition-colors">
+                    <div className="flex flex-wrap gap-2 pt-2">
+                      <button onClick={() => updateStatus(r.id, 'approved')} className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 bg-[#1D9E75]/10 hover:bg-[#1D9E75]/20 text-[#1D9E75] px-3 py-2.5 rounded-xl text-sm font-bold transition-all">
                         <CheckCircle size={14} /> Aprobar
                       </button>
-                      <button onClick={() => updateStatus(r.id, 'in_review')} className="flex items-center gap-1.5 bg-[#60A5FA]/10 hover:bg-[#60A5FA]/20 text-[#60A5FA] px-3 py-2 rounded-lg text-sm transition-colors">
+                      <button onClick={() => updateStatus(r.id, 'in_review')} className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 bg-[#60A5FA]/10 hover:bg-[#60A5FA]/20 text-[#60A5FA] px-3 py-2.5 rounded-xl text-sm font-bold transition-all">
                         <Clock size={14} /> En revisión
                       </button>
-                      <button onClick={() => updateStatus(r.id, 'rejected')} className="flex items-center gap-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 px-3 py-2 rounded-lg text-sm transition-colors">
+                      <button onClick={() => updateStatus(r.id, 'rejected')} className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 px-3 py-2.5 rounded-xl text-sm font-bold transition-all">
                         <X size={14} /> Rechazar
                       </button>
                     </div>

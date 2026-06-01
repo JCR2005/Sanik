@@ -7,7 +7,7 @@ export default async function variablesRoutes(app) {
   // El frontend (Variables.jsx) llama aquí para mostrar las tarjetas
   app.get('/catalog', async (req) => {
     const { rows } = await app.db.query(
-      `SELECT label, name, unit, icon, description 
+      `SELECT label, name, unit, icon, description, data_type
        FROM variable_catalog 
        ORDER BY name ASC`
     )
@@ -17,7 +17,7 @@ export default async function variablesRoutes(app) {
   // ── 2. CREAR NUEVA VARIABLE EN EL CATÁLOGO ──────────────
   // Solo los admins pueden crear variables nuevas desde el panel
   app.post('/catalog', async (req, reply) => {
-    const { name, label, unit, icon, description } = req.body
+    const { name, label, unit, icon, description, data_type } = req.body
 
     // Seguridad: Solo superadmin o admin
     if (req.user.role !== 'superadmin' && req.user.role !== 'admin') {
@@ -32,10 +32,10 @@ export default async function variablesRoutes(app) {
       const cleanLabel = label.toLowerCase().trim().replace(/\s+/g, '_')
 
       const { rows } = await app.db.query(
-        `INSERT INTO variable_catalog (label, name, unit, icon, description)
-         VALUES ($1, $2, $3, $4, $5)
+        `INSERT INTO variable_catalog (label, name, unit, icon, description, data_type)
+         VALUES ($1, $2, $3, $4, $5, $6)
          RETURNING *`,
-        [cleanLabel, name.trim(), unit.trim(), icon || 'Activity', description?.trim()]
+        [cleanLabel, name.trim(), unit.trim(), icon || 'Activity', description?.trim(), data_type || 'number']
       )
 
       return reply.code(201).send(rows[0])

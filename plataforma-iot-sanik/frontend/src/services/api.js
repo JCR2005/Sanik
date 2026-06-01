@@ -1,7 +1,7 @@
 const BASE = import.meta.env.VITE_API_BASE || '/api'
 
 function getToken() {
-  return localStorage.getItem('sanik_token')
+  return localStorage.getItem('sanik_token') || localStorage.getItem('token')
 }
 
 async function request(path, options = {}) {
@@ -11,17 +11,20 @@ async function request(path, options = {}) {
     res = await fetch(`${BASE}${path}`, {
       headers: {
         'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}`, 'X-Auth-Token': token } : {})
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
       },
       ...options
     })
   } catch (err) {
-    throw new Error('No se pudo conectar con el servidor. Verifica que el backend esté activo o la URL base sea correcta.')
+    throw new Error('No se pudo conectar con el servidor. Verifica que el backend esté activo.')
   }
 
   const contentType = res.headers.get('content-type') || ''
-  const data = contentType.includes('application/json') ? await res.json() : null
-  if (!res.ok) throw new Error(data?.error || data?.message || 'Error del servidor')
+  const data = contentType && contentType.includes('application/json') ? await res.json() : null
+  
+  if (!res.ok) {
+    throw new Error(data?.error || data?.message || 'Error del servidor')
+  }
   return data
 }
 
@@ -43,7 +46,15 @@ export const devices = {
   update: (id, data, orgId) => request(`/devices/${id}${orgId ? `?orgId=${orgId}` : ''}`, { method: 'PUT', body: JSON.stringify(data) }),
   delete: (id, orgId) => request(`/devices/${id}${orgId ? `?orgId=${orgId}` : ''}`, { method: 'DELETE' }),
   variables: (id, orgId) => request(`/devices/${id}/variables${orgId ? `?orgId=${orgId}` : ''}`),
-  lastValues: (id, orgId) => request(`/devices/${id}/last-values${orgId ? `?orgId=${orgId}` : ''}`)
+  lastValues: (id, orgId) => request(`/devices/${id}/last-values${orgId ? `?orgId=${orgId}` : ''}`),
+  catalog: () => request('/devices/catalog')
+}
+
+// ── Variables (Catálogo Maestro) ──────────────
+export const variables = {
+  list: () => request('/variables/catalog'),
+  create: (data) => request('/variables/catalog', { method: 'POST', body: JSON.stringify(data) }),
+  delete: (label) => request(`/variables/catalog/${label}`, { method: 'DELETE' })
 }
 
 // ── Dots (datos históricos) ────────────────────
@@ -69,4 +80,12 @@ export const organizations = {
   create: (data) => request('/organizations', { method: 'POST', body: JSON.stringify(data) }),
   update: (id, data) => request(`/organizations/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   updateStatus: (id, status) => request(`/organizations/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
+  revealCredentials: (id, adminPassword) => request(`/organizations/${id}/reveal-credentials`, {
+    method: 'POST',
+    body: JSON.stringify({ adminPassword })
+  }),
+  resetPassword: (id) => request(`/organizations/${id}/reset-client-password`, {
+    method: 'POST',
+    body: JSON.stringify({})
+  })
 }
