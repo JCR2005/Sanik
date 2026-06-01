@@ -69,7 +69,7 @@ export default function App() {
         {/* Ruta para ver el dashboard específico de 1 dispositivo (la que ya tenías) */}
         <Route path="/dashboard/:id" element={<ProtectedRoute allowedRoles={['client']}><Dashboard /></ProtectedRoute>} />
         
-        <Route path="/devices/:id" element={<ClientRoute><ClientDeviceDetail /></ClientRoute>} />
+  <Route path="/devices/:id" element={<ProtectedRoute allowedRoles={['client']}><ClientDeviceDetail /></ProtectedRoute>} />
         {/* ARREGLO 3: Cambiamos /devices por /dispositivos para que encaje con tu menú lateral */}
         <Route path="/dispositivos" element={<ProtectedRoute allowedRoles={['client']}><Devices /></ProtectedRoute>} />
         {/* <Route path="/devices"           element={<ProtectedRoute allowedRoles={['client']}><Devices /></ProtectedRoute>} /> */}
