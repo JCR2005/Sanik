@@ -13,6 +13,7 @@ import AdminDeviceDetail from './pages/admin/DeviceDetail'
 import AdminTeam from './pages/admin/Team'
 import AdminVariables from './pages/admin/Variables'
 import AdminRequests from './pages/admin/Requests'
+import ClientDeviceDetail from './pages/DeviceDetail'
 import Reports from './pages/Reports'
 
 const ADMIN_ROLES = ['admin', 'superadmin', 'worker']
@@ -69,6 +70,7 @@ export default function App() {
         {/* Ruta para ver el dashboard específico de 1 dispositivo (la que ya tenías) */}
         <Route path="/dashboard/:id" element={<ProtectedRoute allowedRoles={['client']}><Dashboard /></ProtectedRoute>} />
         
+  <Route path="/devices/:id" element={<ProtectedRoute allowedRoles={['client']}><ClientDeviceDetail /></ProtectedRoute>} />
         {/* ARREGLO 3: Cambiamos /devices por /dispositivos para que encaje con tu menú lateral */}
         <Route path="/dispositivos" element={<ProtectedRoute allowedRoles={['client']}><Devices /></ProtectedRoute>} />
         {/* <Route path="/devices"           element={<ProtectedRoute allowedRoles={['client']}><Devices /></ProtectedRoute>} /> */}

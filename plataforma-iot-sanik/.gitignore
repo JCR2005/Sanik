@@ -9,8 +9,9 @@ node_modules/
 # =========================
 dist/
 build/
-frontend/dist/
-backend/dist/
+/dist/
+/frontend/dist/
+/backend/dist/
 
 # =========================
 # Environment variables

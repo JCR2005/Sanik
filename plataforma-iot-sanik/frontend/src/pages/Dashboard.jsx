@@ -10,13 +10,36 @@ import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
 
+
+const pulseStyle = `
+  @keyframes pulse-ring {
+    0% { transform: scale(0.8); opacity: 1; }
+    100% { transform: scale(2.4); opacity: 0; }
+  }
+  .pulse-marker { position: relative; }
+  .pulse-marker::before {
+    content: '';
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    animation: pulse-ring 1.5s ease-out infinite;
+  }
+  .pulse-online::before { background: rgba(43,168,160,0.4); }
+`
 // Arreglo para los íconos por defecto de Leaflet en React
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-});
+const createIcon = (status) => L.divIcon({
+  html: `<div style="
+    width:14px;height:14px;border-radius:50%;
+    background:${status === 'online' ? '#2BA8A0' : '#F59E0B'};
+    border:2px solid white;
+    box-shadow:0 0 0 4px ${status === 'online' ? 'rgba(43,168,160,0.3)' : 'rgba(245,158,11,0.3)'};
+    animation:${status === 'online' ? 'pulse-ring 1.5s ease-out infinite' : 'none'}
+  "></div>`,
+  className: '',
+  iconAnchor: [7, 7]
+})
 
 export default function ClientDashboard() {
   const navigate = useNavigate()
@@ -64,7 +87,16 @@ export default function ClientDashboard() {
           backgroundImage: 'radial-gradient(circle at 50% -20%, rgba(103,183,232,0.18) 0%, rgba(103,183,232,0.05) 30%, transparent 70%)'
         }}
       >
-        
+        <style>{pulseStyle}</style>
+        {offlineCount > 0 && (
+          <div className="mb-6 flex items-center gap-3 px-5 py-3.5 rounded-2xl border"
+            style={{background:'rgba(245,158,11,0.08)', borderColor:'rgba(245,158,11,0.3)'}}>
+            <AlertTriangle size={16} style={{color:'#F59E0B', flexShrink:0}}/>
+            <p className="text-sm font-medium" style={{color:'#F59E0B'}}>
+              {offlineCount} estación{offlineCount > 1 ? 'es' : ''} sin conexión. Verificá la alimentación eléctrica o la red WiFi.
+            </p>
+          </div>
+        )}
         {/* Encabezado */}
         <div className="mb-10 flex flex-col gap-1">
           <p className="text-sm font-semibold capitalize tracking-wide" style={{ color: '#67B7E8' }}>
@@ -128,7 +160,7 @@ export default function ClientDashboard() {
   />
   {devices.map((device) => (
     device.lat && device.lng && (
-      <Marker key={device.id} position={[device.lat, device.lng]}>
+    <Marker key={device.id} position={[device.lat, device.lng]} icon={createIcon(device.status)}>
         <Popup>
           <div className="text-center font-sans">
             <strong className="block mb-2 text-sm">{device.name}</strong>
