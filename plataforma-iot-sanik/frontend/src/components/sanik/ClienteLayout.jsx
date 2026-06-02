@@ -45,6 +45,7 @@ const AirSunBoxLogo = ({ size = 140 }) => (
 const CLIENT_NAV = [
   { label: 'Dashboard',    icon: LayoutDashboard, path: '/dashboard' },
   { label: 'Estaciones',   icon: Cpu,             path: '/dispositivos' },
+  { label: 'Reportes',     icon: FileText,        path: '/reportes' },
   { label: 'Alertas',      icon: Bell,            path: '/alerts' },
   { label: 'Solicitudes',  icon: FileText,        path: '/solicitudes' },
   { label: 'Mi Perfil',    icon: User,            path: '/profile' },

@@ -1,4 +1,4 @@
-import bcrypt from 'bcrypt'
+import bcrypt from 'bcryptjs'
 
 const SANIK_ROLES = ['superadmin', 'admin', 'worker']
 

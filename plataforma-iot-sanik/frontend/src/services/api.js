@@ -1,4 +1,4 @@
-const BASE = import.meta.env.VITE_API_BASE || '/api'
+const BASE = 'http://localhost:3000/api'
 
 function getToken() {
   return localStorage.getItem('sanik_token') || localStorage.getItem('token')
@@ -88,4 +88,13 @@ export const organizations = {
     method: 'POST',
     body: JSON.stringify({})
   })
+}
+
+// ── Reportes y Estadísticas ───────────────────
+export const reports = {
+  getHeatmapData: (orgId, startDate, endDate) => 
+    request(`/reports/heatmap?orgId=${orgId || ''}&start=${startDate || ''}&end=${endDate || ''}`),
+  getRespiratoryRisk: (orgId, startDate, endDate) =>
+    request(`/reports/respiratory-risk?orgId=${orgId || ''}&start=${startDate || ''}&end=${endDate || ''}`),
+  getGlobalStats: () => request('/reports/stats')
 }

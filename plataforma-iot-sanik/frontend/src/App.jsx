@@ -13,6 +13,7 @@ import AdminDeviceDetail from './pages/admin/DeviceDetail'
 import AdminTeam from './pages/admin/Team'
 import AdminVariables from './pages/admin/Variables'
 import AdminRequests from './pages/admin/Requests'
+import Reports from './pages/Reports'
 
 const ADMIN_ROLES = ['admin', 'superadmin', 'worker']
 
@@ -115,6 +116,12 @@ export default function App() {
         <Route path="/admin/solicitudes" element={
           <ProtectedRoute allowedRoles={ADMIN_ROLES}>
             <AdminRequests />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/reportes" element={
+          <ProtectedRoute allowedRoles={['client']}>
+            <Reports />
           </ProtectedRoute>
         } />
 
