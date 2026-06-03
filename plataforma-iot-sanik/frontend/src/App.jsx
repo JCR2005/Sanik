@@ -15,7 +15,7 @@ import AdminVariables from './pages/admin/Variables'
 import AdminRequests from './pages/admin/Requests'
 import ClientDeviceDetail from './pages/DeviceDetail'
 import Reports from './pages/Reports'
-
+import VariableDetail from './pages/VariableDetail'
 const ADMIN_ROLES = ['admin', 'superadmin', 'worker']
 
 /**
@@ -63,14 +63,14 @@ export default function App() {
         <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
 
         {/* --- RUTAS EXCLUSIVAS DE CLIENTES (CORREGIDAS) --- */}
-        
+        <Route path="/variableDetail/:deviceId/:variableLabel" element={<ProtectedRoute allowedRoles={['client']}><VariableDetail /></ProtectedRoute>} />
         {/* ARREGLO 2: Ruta base del Dashboard agregada */}
         <Route path="/dashboard" element={<ProtectedRoute allowedRoles={['client']}><Dashboard /></ProtectedRoute>} />
         
         {/* Ruta para ver el dashboard específico de 1 dispositivo (la que ya tenías) */}
         <Route path="/dashboard/:id" element={<ProtectedRoute allowedRoles={['client']}><Dashboard /></ProtectedRoute>} />
         
-  <Route path="/devices/:id" element={<ProtectedRoute allowedRoles={['client']}><ClientDeviceDetail /></ProtectedRoute>} />
+        <Route path="/devices/:id" element={<ProtectedRoute allowedRoles={['client']}><ClientDeviceDetail /></ProtectedRoute>} />
         {/* ARREGLO 3: Cambiamos /devices por /dispositivos para que encaje con tu menú lateral */}
         <Route path="/dispositivos" element={<ProtectedRoute allowedRoles={['client']}><Devices /></ProtectedRoute>} />
         {/* <Route path="/devices"           element={<ProtectedRoute allowedRoles={['client']}><Devices /></ProtectedRoute>} /> */}

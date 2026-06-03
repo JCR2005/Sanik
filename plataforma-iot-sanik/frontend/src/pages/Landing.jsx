@@ -1,6 +1,10 @@
 import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 
+// 1. IMPORTAMOS TU IMAGEN DESDE LA CARPETA ASSETS
+// (Asegúrate de cambiar "logo.png" por el nombre exacto de tu archivo en esa carpeta, por ejemplo "AirSunBoxLogo.png")
+import logoImg from "../assets/logo2.svg";
+
 const COLORS = {
   primary: "#67B7E8",
   accent: "#2BA8A0",
@@ -12,50 +16,17 @@ const COLORS = {
   white: "#ffffff",
 };
 
+// 2. REEMPLAZAMOS EL SVG DE ABAJO POR UN COMPONENTE QUE USA TU IMAGEN REAL
 const AirSunBoxLogo = ({ size = 48 }) => (
-  <svg
-    width={size}
-    height={(size * 500) / 900}
-    viewBox="0 0 900 500"
-    xmlns="http://www.w3.org/2000/svg"
-  >
-    <style>{`
-      .lbl{stroke:#67B7E8;fill:none;stroke-width:10;stroke-linecap:round;stroke-linejoin:round;}
-      .lbt{fill:#67B7E8;font-family:Arial,sans-serif;font-size:72px;font-weight:bold;}
-    `}</style>
-    <circle className="lbl" cx="260" cy="220" r="110" />
-    <line className="lbl" x1="260" y1="60" x2="260" y2="10" />
-    <line className="lbl" x1="260" y1="380" x2="260" y2="430" />
-    <line className="lbl" x1="110" y1="220" x2="50" y2="220" />
-    <line className="lbl" x1="410" y1="220" x2="470" y2="220" />
-    <line className="lbl" x1="150" y1="110" x2="105" y2="65" />
-    <line className="lbl" x1="370" y1="330" x2="415" y2="375" />
-    <line className="lbl" x1="370" y1="110" x2="415" y2="65" />
-    <line className="lbl" x1="150" y1="330" x2="105" y2="375" />
-    <line className="lbl" x1="205" y1="80" x2="185" y2="35" />
-    <line className="lbl" x1="315" y1="80" x2="335" y2="35" />
-    <line className="lbl" x1="205" y1="360" x2="185" y2="405" />
-    <line className="lbl" x1="315" y1="360" x2="335" y2="405" />
-    <path
-      className="lbl"
-      d="M470 180 C540 180,560 180,600 180 C650 180,670 120,620 120 C585 120,575 150,590 160"
-    />
-    <path
-      className="lbl"
-      d="M450 220 C560 220,620 220,720 220 C790 220,810 140,740 140 C700 140,690 180,715 190"
-    />
-    <path
-      className="lbl"
-      d="M470 280 C560 280,620 280,680 280 C740 280,760 350,700 350 C660 350,655 310,680 300"
-    />
-    <path
-      className="lbl"
-      d="M720 270 C780 270,790 270,810 270 C850 270,860 330,820 330 C790 330,785 300,800 290"
-    />
-    <text className="lbt" x="340" y="430">
-      AirSunBox
-    </text>
-  </svg>
+  <img 
+    src={logoImg} 
+    alt="AirSunBox Logo" 
+    style={{
+      width: size,
+      height: "auto", // Mantiene la proporción original automáticamente
+      display: "block"
+    }}
+  />
 );
 
 const useScrollReveal = () => {
@@ -460,7 +431,7 @@ export default function Landing() {
           top: 0,
           zIndex: 200,
           padding: "0 6vw",
-          height: 64,
+          height: 100,
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
@@ -473,7 +444,8 @@ export default function Landing() {
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <AirSunBoxLogo size={100} />
+          {/* El logo de la barra de navegación ahora usa la imagen */}
+          <AirSunBoxLogo size={150} />
         </div>
 
         <button className="menu-toggle" onClick={() => setMenuOpen(!menuOpen)}>
@@ -536,8 +508,9 @@ export default function Landing() {
             marginBottom: 32,
           }}
         >
-          <div className="logo-float" style={{ marginBottom: 24 }}>
-            <AirSunBoxLogo size={280} />
+          {/* El logo principal gigante también usa la imagen física limpia */}
+          <div className="logo-float" style={{ marginBottom: 24, display: "flex", justifyContent: "center" }}>
+            <AirSunBoxLogo size={320} />
           </div>
           <h1
             style={{
@@ -1154,10 +1127,9 @@ export default function Landing() {
         }}
       >
         <Reveal>
-          <div
-            style={{ marginBottom: 16, display: "flex", justifyContent: "center" }}
-          >
-            <AirSunBoxLogo size={160} />
+          {/* El logo inferior del cierre de página también adaptado */}
+          <div style={{ marginBottom: 16, display: "flex", justifyContent: "center" }}>
+            <AirSunBoxLogo size={180} />
           </div>
           <h2
             style={{
@@ -1232,7 +1204,8 @@ export default function Landing() {
             margin: "0 auto",
           }}
         >
-          <AirSunBoxLogo size={100} />
+          {/* El logo final del footer */}
+          <AirSunBoxLogo size={110} />
 
           <p
             style={{
