@@ -140,7 +140,7 @@ export default function Login() {
                   <Mail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 transition-colors group-focus-within:text-[#67B7E8]" style={{ color: COLORS.textMuted }} />
                   <input
                     type="email"
-                    placeholder="admin@empresa.com"
+                    placeholder="admin@AirSunBox.com"
                     value={form.email}
                     onChange={e => setForm({...form, email: e.target.value})}
                     className="w-full bg-white border rounded-xl pl-12 pr-4 py-3.5 text-sm outline-none transition-all duration-300 focus:ring-4"

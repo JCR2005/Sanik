@@ -47,7 +47,8 @@ export const devices = {
   delete: (id, orgId) => request(`/devices/${id}${orgId ? `?orgId=${orgId}` : ''}`, { method: 'DELETE' }),
   variables: (id, orgId) => request(`/devices/${id}/variables${orgId ? `?orgId=${orgId}` : ''}`),
   lastValues: (id, orgId) => request(`/devices/${id}/last-values${orgId ? `?orgId=${orgId}` : ''}`),
-  catalog: () => request('/devices/catalog')
+  catalog: () => request('/devices/catalog'),
+  aqi: (id, orgId) => request(`/devices/${id}/aqi${orgId ? `?orgId=${orgId}` : ''}`)
 }
 
 // ── Variables (Catálogo Maestro) ──────────────

@@ -1125,7 +1125,7 @@ export default function Landing() {
                   </div>
 
                   <a
-                    href="mailto:contacto@airsunbox.com"
+                    href="mailto:AirSunBox@gmail.com"
                     className={p.popular ? "btn-primary" : "btn-outline"}
                     style={{
                       display: "block",
@@ -1196,18 +1196,18 @@ export default function Landing() {
             }}
           >
             <a
-              href="https://wa.me/502"
+              href="https://wa.me/50256278637?text=Hola%20AirSunBox%2C%20quiero%20saber%20más%20sobre%20sus%20planes%20y%20estaciones."
               className="btn-primary"
               style={{ fontSize: "1rem", padding: "14px 36px" }}
             >
               WhatsApp
             </a>
             <a
-              href="mailto:contacto@airsunbox.com"
+              href="mailto:AirSunBox@gmail.com"
               className="btn-outline"
               style={{ fontSize: "1rem", padding: "14px 36px" }}
             >
-              contacto@airsunbox.com
+              AirSunBox@gmail.com
             </a>
           </div>
         </Reveal>
@@ -1255,7 +1255,7 @@ export default function Landing() {
               Ingresar
             </Link>
             <a
-              href="mailto:contacto@airsunbox.com"
+              href="mailto:AirSunBox@gmail.com"
               style={{
                 color: COLORS.textMuted,
                 fontSize: ".85rem",

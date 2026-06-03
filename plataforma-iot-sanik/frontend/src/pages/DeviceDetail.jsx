@@ -15,7 +15,6 @@ import {
 const RANGES = ['1h', '6h', '24h', '7d', '30d']
 const COLORS = ['#4DB6FF','#60A5FA','#F59E0B','#A78BFA','#F87171','#34D399','#FB923C','#C084FC','#22D3EE','#FBBF24','#818CF8','#E879F9']
 
-// Diccionario de íconos disponibles mapeados en minúsculas
 const AVAILABLE_ICONS = {
   'map-pin': MapPin, 'thermometer': Thermometer, 'droplets': Droplets,
   'wind': Wind, 'sun': Sun, 'cloud': Cloud, 'cloud-lightning': CloudLightning,
@@ -24,11 +23,8 @@ const AVAILABLE_ICONS = {
   'shield': Shield, 'activity': Activity
 }
 
-// Componente de tarjeta individual adaptado para recibir el ícono del catálogo
 function SensorKPI({ name, unit, value, iconName }) {
-  // Busca el ícono configurado por el admin (convirtiendo a minúsculas para hacer match)
   const IconComponent = AVAILABLE_ICONS[iconName?.toLowerCase()] || Activity
-
   return (
     <div className="border rounded-2xl p-6 flex flex-col justify-center text-center shadow-sm hover:shadow-md transition-shadow" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
       <div className="flex justify-center mb-2">
@@ -56,31 +52,53 @@ export default function ClientDeviceDetail() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   
+  // Estado para el Círculo de Calidad de Aire (AQI)
+  const [aqiData, setAqiData] = useState({ aqi: null, category: 'Sin Datos', color: '#9CA3AF' })
   const [activeView, setActiveView] = useState('variables') 
 
-  // 1. Carga inicial
+  // Función auxiliar para asignar colores basados en las categorías de tu devices.js
+  const getAqiColor = (category) => {
+    if (!category) return '#9CA3AF'
+    const cat = category.toLowerCase()
+    if (cat.includes('excelente')) return '#10B981'  // Verde esmeralda
+    if (cat.includes('buena')) return '#34D399'      // Verde claro
+    if (cat.includes('precaución')) return '#F59E0B' // Ámbar/Naranja
+    return '#EF4444'                                 // Mala / Peligrosa (Rojo)
+  }
+
+  // 1. Carga inicial de datos integrando el Endpoint del AQI recalculado
   useEffect(() => {
     let active = true
     const load = async () => {
       setLoading(true)
       setError('')
       try {
-        const [dev, vars, lv] = await Promise.all([
+        const [dev, vars, lv, aqiRes] = await Promise.all([
           devicesApi.get(deviceId),
           devicesApi.variables(deviceId),
-          devicesApi.lastValues(deviceId)
+          devicesApi.lastValues(deviceId),
+          devicesApi.aqi(deviceId).catch(() => null) // Evita romper si la formula falla por falta de datos
         ])
+        
         if (!active) return
         setDevice(dev)
         
         const varList = vars || []
         setVariables(varList)
-        
         if (varList.length) setActiveVars(varList.map(v => v.label))
 
         const map = {}
         ;(lv || []).forEach(v => { map[v.label] = v.last_value })
         setLastValues(map)
+
+        // Setea el AQI real procesado por el backend
+        if (aqiRes) {
+          setAqiData({
+            aqi: aqiRes.aqi,
+            category: aqiRes.category,
+            color: getAqiColor(aqiRes.category)
+          })
+        }
       } catch (err) {
         if (active) setError(err.message || 'No se pudo cargar la estación')
       } finally {
@@ -91,30 +109,41 @@ export default function ClientDeviceDetail() {
     return () => { active = false }
   }, [deviceId])
 
-  // 2. Refresco continuo de últimos valores
+  // 2. Refresco continuo cada 5 segundos (Últimos valores + Recálculo de AQI del backend)
   useEffect(() => {
     if (!deviceId) return
-    const fetch = () => {
+    const fetchLiveUpdates = () => {
+      // Actualiza tarjetas comunes
       devicesApi.lastValues(deviceId).then(lv => {
         const map = {}
         ;(lv || []).forEach(v => { map[v.label] = v.last_value })
         setLastValues(map)
       }).catch(() => {})
+
+      // Actualiza cálculo dinámico de AQI
+      devicesApi.aqi(deviceId).then(aqiRes => {
+        if (aqiRes) {
+          setAqiData({
+            aqi: aqiRes.aqi,
+            category: aqiRes.category,
+            color: getAqiColor(aqiRes.category)
+          })
+        }
+      }).catch(() => {})
     }
-    const interval = setInterval(fetch, 5000)
+
+    const interval = setInterval(fetchLiveUpdates, 5000)
     return () => clearInterval(interval)
   }, [deviceId])
 
-  // 3. Históricos de gráfica
+  // 3. Históricos de la gráfica
   useEffect(() => {
     if (!deviceId || !activeVars.length) return
     
     dotsApi.getMultiple(deviceId, activeVars, range).then(data => {
       const timeMap = {}
-      
       for (const [variable, points] of Object.entries(data || {})) {
         if (!Array.isArray(points)) continue
-
         points.forEach(p => {
           const t = new Date(p.time).toLocaleTimeString('es-GT', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
           if (!timeMap[t]) {
@@ -123,7 +152,6 @@ export default function ClientDeviceDetail() {
           timeMap[t][variable] = p.value
         })
       }
-      
       const sortedData = Object.values(timeMap).sort((a, b) => a._rawTime - b._rawTime)
       setChartData(sortedData.slice(-60))
     }).catch((err) => {
@@ -136,13 +164,12 @@ export default function ClientDeviceDetail() {
   const lngValue = device?.lng != null ? parseFloat(device.lng) : null
   const hasValidGPS = latValue != null && lngValue != null && !isNaN(latValue) && !isNaN(lngValue)
 
-  // ── EXTRACCIÓN DE VALORES EN MINÚSCULAS ──
+  // Extracción limpia para los KPIs principales del Hero (Mapeo flexible de nombres)
   const temp = lastValues['temperatura'] ?? lastValues['Temperatura'] ?? lastValues['temperature'] ?? null
   const hum = lastValues['humedad'] ?? lastValues['Humedad'] ?? lastValues['humidity'] ?? null
   const co2 = lastValues['co2'] ?? lastValues['CO2'] ?? null
   const co = lastValues['co'] ?? lastValues['CO'] ?? null
 
-  // ── BUSQUEDA DE ÍCONOS DEL CATÁLOGO PARA EL HERO PRINCIPAL ──
   const varTempObj = variables.find(v => ['temperatura', 'temperature'].includes(v.label?.toLowerCase()))
   const varHumObj = variables.find(v => ['humedad', 'humidity'].includes(v.label?.toLowerCase()))
   const varCo2Obj = variables.find(v => ['co2'].includes(v.label?.toLowerCase()))
@@ -152,16 +179,6 @@ export default function ClientDeviceDetail() {
   const HumIcon = AVAILABLE_ICONS[varHumObj?.icon?.toLowerCase()] || Droplets
   const Co2Icon = AVAILABLE_ICONS[varCo2Obj?.icon?.toLowerCase()] || Cloud
   const CoIcon = AVAILABLE_ICONS[varCoObj?.icon?.toLowerCase()] || Flame
-
-  // Backend AQI
-  const aqiBackendValue = lastValues['AQI'] ?? lastValues['ICA'] ?? null
-  let aqiStatus = { text: 'Calculando...', color: '#9CA3AF' } 
-  if (aqiBackendValue != null) {
-    if (aqiBackendValue <= 50) aqiStatus = { text: 'Buena', color: '#10B981' }
-    else if (aqiBackendValue <= 100) aqiStatus = { text: 'Moderada', color: '#F59E0B' }
-    else if (aqiBackendValue <= 150) aqiStatus = { text: 'Precaución', color: '#F97316' }
-    else aqiStatus = { text: 'Mala', color: '#EF4444' }
-  }
 
   const scrollToDetails = () => {
     document.getElementById('detalles-view')?.scrollIntoView({ behavior: 'smooth' })
@@ -179,7 +196,7 @@ export default function ClientDeviceDetail() {
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-6 items-start">
 
-            {/* ── COLUMNA IZQUIERDA INTACTA ── */}
+            {/* ── COLUMNA IZQUIERDA ── */}
             <div className="space-y-6 lg:sticky lg:top-8 z-10">
               <aside className="rounded-2xl border p-4" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
                 <div className="flex items-center gap-3 mb-4">
@@ -316,24 +333,31 @@ export default function ClientDeviceDetail() {
               <div className="flex-1 flex flex-col justify-center min-h-[70vh] mb-12 mt-4">
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 w-full">
                   
-                  {/* Círculo AQI */}
+                  {/* Círculo AQI - TOTALMENTE ENLAZADO CON EL ENDPOINT DE TU BACKEND */}
                   <div className="border rounded-[3rem] p-10 flex flex-col items-center justify-center shadow-sm relative overflow-hidden min-h-[450px]" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
                     <h3 className="text-lg font-black uppercase tracking-widest mb-8 text-center w-full absolute top-10" style={{ color: 'var(--text2)' }}>
                       Calidad del Aire
                     </h3>
                     
                     <div 
-                      className="w-72 h-72 rounded-full flex flex-col items-center justify-center text-white shadow-2xl transition-transform duration-500 hover:scale-105"
-                      style={{ backgroundColor: aqiStatus.color, boxShadow: `0 25px 50px -12px ${aqiStatus.color}90` }}
+                      className="w-72 h-72 rounded-full flex flex-col items-center justify-center text-white shadow-2xl transition-all duration-500 hover:scale-105"
+                      style={{ backgroundColor: aqiData.color, boxShadow: `0 25px 50px -12px ${aqiData.color}90` }}
                     >
-                      <Leaf size={64} className="mb-4 opacity-90" />
-                      <span className="text-4xl lg:text-5xl font-black text-center leading-none px-4 drop-shadow-lg">
-                        {aqiStatus.text}
+                      <Leaf size={40} className="mb-2 opacity-90" />
+                      
+                      {/* Muestra el valor numérico del AQI ponderado */}
+                      <span className="text-6xl font-black drop-shadow-lg mb-1">
+                        {aqiData.aqi != null ? Math.round(aqiData.aqi) : '--'}
+                      </span>
+
+                      {/* Muestra la categoría textual devuelta por el Backend ('Excelente', 'Buena', etc.) */}
+                      <span className="text-xl font-bold text-center leading-none px-4 drop-shadow-lg">
+                        {aqiData.category}
                       </span>
                     </div>
                   </div>
 
-                  {/* Cuadrícula de 4 Reyes (Con íconos dinámicos del catálogo) */}
+                  {/* Cuadrícula de los 4 Sensores Clave */}
                   <div className="border rounded-[3rem] p-8 flex flex-col justify-center shadow-sm min-h-[450px]" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
                     <div className="grid grid-cols-2 gap-y-12 gap-x-4 w-full h-full items-center">
                       
@@ -361,7 +385,6 @@ export default function ClientDeviceDetail() {
                         </div>
                       </div>
 
-                      {/* Divisor */}
                       <div className="col-span-2 w-full h-px max-w-[80%] mx-auto" style={{ background: 'var(--border)' }}></div>
 
                       {/* CO2 */}
@@ -394,7 +417,7 @@ export default function ClientDeviceDetail() {
                 </div>
               </div>
 
-              {/* Viñetas / Tabs */}
+              {/* Tabs de Selección */}
               <div id="detalles-view" className="flex justify-center mb-8 scroll-mt-8">
                 <div className="inline-flex p-2 rounded-[2rem] shadow-sm" style={{ background: 'var(--card)', border: '1px solid var(--border)' }}>
                   <button
@@ -414,11 +437,10 @@ export default function ClientDeviceDetail() {
                 </div>
               </div>
 
-              {/* Contenido inferior */}
+              {/* Contenido Dinámico */}
               <div className="pb-12">
                 {activeView === 'variables' ? (
                   <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-5 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                    {/* Renderizado dinámico pasando el ícono real de la base de datos (v.icon) */}
                     {variables.map(v => (
                       <SensorKPI 
                         key={v.label} 
