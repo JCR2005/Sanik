@@ -210,6 +210,8 @@ export default async function devicesRoutes(app) {
 
     return variables
   })
+
+  
 app.get('/:id/aqi', async (req, reply) => {
   const targetOrgId =
     (SANIK_ROLES.includes(req.user.role) && req.query.orgId)
