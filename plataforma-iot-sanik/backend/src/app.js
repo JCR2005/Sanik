@@ -22,7 +22,15 @@ import reportsRoutes       from './routes/reports.js'
 const app = Fastify({ logger: true })
 
 // ── Plugins globales ──────────────────────────
-await app.register(cors, { origin: '*' })
+await app.register(cors, { 
+  origin: [
+    'https://voluble-creponne-e6c74f.netlify.app',
+    'http://localhost:5173'
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'ngrok-skip-browser-warning'],
+  credentials: true
+})
 
 await app.register(jwt, {
   secret: process.env.JWT_SECRET || 'sanik_secret_key'

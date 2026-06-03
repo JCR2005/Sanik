@@ -11,6 +11,7 @@ async function request(path, options = {}) {
     res = await fetch(`${BASE}${path}`, {
       headers: {
         'Content-Type': 'application/json',
+        'ngrok-skip-browser-warning': 'true', // <-- Aquí está la magia para saltar la advertencia
         ...(token ? { Authorization: `Bearer ${token}` } : {})
       },
       ...options
