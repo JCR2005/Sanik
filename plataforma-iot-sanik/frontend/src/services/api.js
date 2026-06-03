@@ -90,3 +90,12 @@ export const organizations = {
     body: JSON.stringify({})
   })
 }
+
+// ── Reportes y Estadísticas ───────────────────
+export const reports = {
+  getHeatmapData: (orgId, startDate, endDate) => 
+    request(`/reports/heatmap?orgId=${orgId || ''}&start=${startDate || ''}&end=${endDate || ''}`),
+  getRespiratoryRisk: (orgId, startDate, endDate) =>
+    request(`/reports/respiratory-risk?orgId=${orgId || ''}&start=${startDate || ''}&end=${endDate || ''}`),
+  getGlobalStats: () => request('/reports/stats')
+}

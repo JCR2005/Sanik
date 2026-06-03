@@ -17,6 +17,7 @@ import organizationsRoutes from './routes/organizations.js'
 import paymentsRoutes      from './routes/payments.js'
 import requestsRoutes      from './routes/requests.js'
 import incidentsRoutes     from './routes/incidents.js'
+import reportsRoutes       from './routes/reports.js'
 
 const app = Fastify({ logger: true })
 
@@ -53,6 +54,7 @@ await app.register(organizationsRoutes, { prefix: '/api/organizations' })
 await app.register(paymentsRoutes,      { prefix: '/api/payments' })
 await app.register(requestsRoutes,      { prefix: '/api/requests' })
 await app.register(incidentsRoutes,     { prefix: '/api/incidents' })
+await app.register(reportsRoutes,       { prefix: '/api/reports' })
 
 // ── WebSocket tiempo real ──────────────────────
 app.get('/ws', { websocket: true }, (socket) => {
