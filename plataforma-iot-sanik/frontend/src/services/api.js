@@ -11,7 +11,7 @@ async function request(path, options = {}) {
     res = await fetch(`${BASE}${path}`, {
       headers: {
         'Content-Type': 'application/json',
-        'ngrok-skip-browser-warning': 'true', // <-- Aquí está la magia para saltar la advertencia
+        'ngrok-skip-browser-warning': 'true', 
         ...(token ? { Authorization: `Bearer ${token}` } : {})
       },
       ...options
@@ -43,21 +43,24 @@ export const devices = {
   variables: (id, orgId) => request(`/devices/${id}/variables${orgId ? `?orgId=${orgId}` : ''}`),
   lastValues: (id, orgId) => request(`/devices/${id}/last-values${orgId ? `?orgId=${orgId}` : ''}`),
   catalog: () => request('/devices/catalog'),
-  aqi: (id, orgId) => request(`/devices/${id}/aqi${orgId ? `?orgId=${orgId}` : ''}`)
+  aqi: (id, orgId) => request(`/devices/${id}/aqi${orgId ? `?orgId=${orgId}` : ''}`),
+  
+  
+  listPublic: () => request('/public/devices'),
+  aqiPublic: (id) => request(`/public/devices/${id}/aqi`)
 }
 
 export const variables = {
   list: () => request('/variables/catalog'),
   create: (data) => request('/variables/catalog', { method: 'POST', body: JSON.stringify(data) }),
-  delete: (label) => request(`/variables/catalog/${label}`, { method: 'DELETE' })
+  delete: (label) => request(`/variables/catalog/${label}`, { method: 'DELETE' }),
+  getRanges: (label, orgId) => request(`/variables/ranges/${label}${orgId ? `?orgId=${orgId}` : ''}`)
 }
 
 export const dots = {
-  // Gráfica: Envía rango, la función matemática y el tamaño del bucket elegido en el menú unificado
   get: (deviceId, variable, range = '24h', aggregation = 'avg', bucket = '15 minutes', orgId) =>
     request(`/dots/${deviceId}/${variable}?range=${range}&aggregation=${aggregation}&bucket=${bucket}${orgId ? `&orgId=${orgId}` : ''}`),
   
-  // Tabla: Carga por paginado real de los datos crudos
   getRaw: (deviceId, variable, page = 1, limit = 10, orgId) =>
     request(`/dots/${deviceId}/${variable}/raw?page=${page}&limit=${limit}${orgId ? `&orgId=${orgId}` : ''}`),
 

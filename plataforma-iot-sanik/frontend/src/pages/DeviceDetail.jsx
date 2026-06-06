@@ -136,7 +136,6 @@ export default function ClientDeviceDetail() {
     return () => clearInterval(interval)
   }, [deviceId])
 
-  // ⚡ GRÁFICA OPTIMIZADA
   useEffect(() => {
     if (!deviceId || !activeVars.length || activeView !== 'grafica') {
       if (activeView === 'grafica' && !activeVars.length) {
@@ -311,6 +310,29 @@ export default function ClientDeviceDetail() {
                   </div>
                 )}
               </div>
+
+              <div className="border rounded-2xl p-4 flex flex-col bg-white dark:bg-gray-900" style={{ borderColor: 'var(--border)' }}>
+                <div className="flex items-center gap-2 mb-4">
+                  <Info size={16} className="text-[#67B7E8]" />
+                  <h3 className="font-bold text-[13px] uppercase tracking-wider text-slate-800 dark:text-slate-200">Datos del Hardware</h3>
+                </div>
+                <div className="space-y-4">
+                  
+                  <div className="flex items-center justify-center border border-dashed rounded-xl h-[110px]" style={{ borderColor: 'var(--border)', backgroundColor: 'var(--bg)' }}>
+                    <span className="text-[13px] text-slate-500 font-medium">Sin foto del equipo</span>
+                  </div>
+
+                  {/* Número de serie */}
+                  <div>
+                    <span className="block text-[12px] font-bold mb-1.5 text-slate-700 dark:text-slate-300">Número de Serie</span>
+                    <div className="inline-block px-3 py-1.5 border rounded-lg text-xs font-mono font-medium bg-green-50/50 dark:bg-green-900/20 text-slate-800 dark:text-slate-200" style={{ borderColor: '#E2E8F0' }}>
+                      {device?.serial_number || 'SN-NO-ASIGNADO'}
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+
             </div>
 
             <section className="flex flex-col min-h-[calc(100vh-4rem)]">
@@ -379,8 +401,8 @@ export default function ClientDeviceDetail() {
                           {aqiData.category?.toLowerCase().includes('excelente') && 'El aire es ideal. No hay impacto en la salud respiratoria.'}
                           {aqiData.category?.toLowerCase().includes('buena') && 'Calidad aceptable. Riesgo mínimo para grupos vulnerables.'}
                           {aqiData.category?.toLowerCase().includes('precaución') && 'Personas con asma deben limitar el esfuerzo prolongado.'}
-                          {aqiData.category?.toLowerCase().includes('mala') && '⚠️ Riesgo respiratorio. Reducir actividades al aire libre.'}
-                          {aqiData.category?.toLowerCase().includes('peligrosa') && '🚨 Peligro inminente. Permanecer en interiores.'}
+                          {aqiData.category?.toLowerCase().includes('mala') && 'Riesgo respiratorio. Reducir actividades al aire libre.'}
+                          {aqiData.category?.toLowerCase().includes('peligrosa') && 'Peligro inminente. Permanecer en interiores.'}
                           {!aqiData.category && 'Esperando datos de la estación...'}
                         </p>
                       </div>
@@ -464,7 +486,7 @@ export default function ClientDeviceDetail() {
               <div className="pb-12">
                 {activeView === 'variables' ? (
                   <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-5 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                    {/* ⚡ AQUÍ ESTÁ EL CAMBIO PARA ENLAZAR AL DETALLE DE LA VARIABLE ⚡ */}
+                    {/* Enlace al detalle de la variable */}
                     {variables.map(v => (
                       <Link 
                         to={`/variableDetail/${deviceId}/${v.label}`} 

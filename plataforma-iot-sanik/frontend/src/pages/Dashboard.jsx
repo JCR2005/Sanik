@@ -10,7 +10,6 @@ import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
 
-
 const pulseStyle = `
   @keyframes pulse-ring {
     0% { transform: scale(0.8); opacity: 1; }
@@ -26,30 +25,61 @@ const pulseStyle = `
     border-radius: 50%;
     animation: pulse-ring 1.5s ease-out infinite;
   }
-  .pulse-online::before { background: rgba(43,168,160,0.4); }
 `
-// Arreglo para los íconos por defecto de Leaflet en React
-const createIcon = (status) => L.divIcon({
-  html: `<div style="
-    width:14px;height:14px;border-radius:50%;
-    background:${status === 'online' ? '#2BA8A0' : '#F59E0B'};
-    border:2px solid white;
-    box-shadow:0 0 0 4px ${status === 'online' ? 'rgba(43,168,160,0.3)' : 'rgba(245,158,11,0.3)'};
-    animation:${status === 'online' ? 'pulse-ring 1.5s ease-out infinite' : 'none'}
-  "></div>`,
-  className: '',
-  iconAnchor: [7, 7]
-})
 
 export default function ClientDashboard() {
   const navigate = useNavigate()
   const { user, org } = useAuthStore()
   const [devices, setDevices] = useState([])
   const [loading, setLoading] = useState(true)
+  const [aqis, setAqis] = useState({}) // Guarda el AQI de cada dispositivo
 
   useEffect(() => {
     devicesApi.list().then(setDevices).finally(() => setLoading(false))
   }, [])
+
+  // Efecto para consultar el AQI de cada dispositivo
+  useEffect(() => {
+    if (devices.length > 0) {
+      devices.forEach(d => {
+        devicesApi.aqi(d.id).then(res => {
+          if (res) {
+            setAqis(prev => ({ ...prev, [d.id]: res }))
+          }
+        }).catch(() => {})
+      })
+    }
+  }, [devices])
+
+  // Función para obtener el color exacto del AQI
+  const getAqiColor = (category) => {
+    if (!category) return '#9CA3AF'
+    const cat = category.toLowerCase()
+    if (cat.includes('excelente')) return '#10B981'  
+    if (cat.includes('buena')) return '#34D399'      
+    if (cat.includes('precaución')) return '#F59E0B' 
+    if (cat.includes('mala')) return '#F97316'       
+    return '#EF4444'                                 
+  }
+
+  // Creador de íconos que toma en cuenta el AQI
+  const createIcon = (device) => {
+    const isOnline = device.status === 'online'
+    const aqiData = aqis[device.id]
+    const markerColor = !isOnline ? '#9CA3AF' : (aqiData ? getAqiColor(aqiData.category) : '#2BA8A0')
+    
+    return L.divIcon({
+      html: `<div style="
+        width:14px;height:14px;border-radius:50%;
+        background:${markerColor};
+        border:2px solid white;
+        box-shadow:0 0 0 4px ${isOnline ? markerColor + '4D' : 'rgba(156,163,175,0.3)'};
+        animation:${isOnline ? 'pulse-ring 1.5s ease-out infinite' : 'none'}
+      "></div>`,
+      className: '',
+      iconAnchor: [7, 7]
+    })
+  }
 
   const activeCount = devices.filter(d => d.status === 'online' || d.status === 'active').length
   const offlineCount = devices.filter(d => d.status === 'offline' || d.status === 'inactive').length
@@ -64,11 +94,8 @@ export default function ClientDashboard() {
     { label: 'Sin Conexión', value: offlineCount, icon: AlertTriangle, color: '#F59E0B', bg: 'rgba(245,158,11,0.1)' },
   ]
 
-  // Coordenadas por defecto por si no hay dispositivos
   const defaultCenter = [14.8347, -91.5185] 
   const mapCenter = devices.length > 0 && devices[0].lat ? [devices[0].lat, devices[0].lng] : defaultCenter
-
-  // Lógica para mostrar un saludo más elegante
   const greetingName = org?.name || user?.name || '';
 
   if (loading) return (
@@ -97,7 +124,7 @@ export default function ClientDashboard() {
             </p>
           </div>
         )}
-        {/* Encabezado */}
+        
         <div className="mb-10 flex flex-col gap-1">
           <p className="text-sm font-semibold capitalize tracking-wide" style={{ color: '#67B7E8' }}>
             {today}
@@ -110,7 +137,6 @@ export default function ClientDashboard() {
           </p>
         </div>
 
-        {/* Tarjetas KPI */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
           {STAT_CARDS.map(({ label, value, icon: Icon, color, bg }) => (
             <div 
@@ -141,7 +167,6 @@ export default function ClientDashboard() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           
-          {/* Mapa de Ubicaciones */}
           <div className="lg:col-span-2 rounded-3xl p-6 flex flex-col overflow-hidden relative" style={{ background: 'var(--card)', border: '1px solid var(--border)', boxShadow: '0 4px 24px rgba(0,0,0,0.02)', minHeight: '450px' }}>
             <div className="flex items-center gap-3 mb-6">
               <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(103,183,232,0.12)', color: '#67B7E8' }}>
@@ -154,55 +179,61 @@ export default function ClientDashboard() {
             
             <div className="flex-1 w-full h-full relative z-0 rounded-2xl overflow-hidden border" style={{ borderColor: 'var(--border)' }}>
               <MapContainer center={mapCenter} zoom={13} style={{ height: '100%', width: '100%', minHeight: '350px' }}>
-  <TileLayer
-    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
-    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-  />
-  {devices.map((device) => (
-    device.lat && device.lng && (
-    <Marker key={device.id} position={[device.lat, device.lng]} icon={createIcon(device.status)}>
-        <Popup>
-          <div className="text-center font-sans">
-            <strong className="block mb-2 text-sm">{device.name}</strong>
-            
-            {/* Nuevo diseño de estado sin emojis y con diseño premium */}
-            <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${
-              device.status === 'online' 
-                ? 'bg-teal-50 text-teal-700 border-teal-200' 
-                : 'bg-amber-50 text-amber-700 border-amber-200'
-            }`}>
-              <span 
-                className="w-1.5 h-1.5 rounded-full" 
-                style={{ 
-                  background: device.status === 'online' ? '#2BA8A0' : '#F59E0B',
-                  boxShadow: `0 0 6px ${device.status === 'online' ? '#2BA8A0' : '#F59E0B'}`
-                }} 
-              />
-              {device.status === 'online' ? 'En línea' : 'Desconectado'}
+                <TileLayer
+                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                />
+                {devices.map((device) => {
+                  const aqiData = aqis[device.id]
+                  const markerColor = device.status === 'online' && aqiData ? getAqiColor(aqiData.category) : (device.status === 'online' ? '#2BA8A0' : '#F59E0B')
+                  
+                  return (
+                    device.lat && device.lng && (
+                    <Marker key={device.id} position={[device.lat, device.lng]} icon={createIcon(device)}>
+                        <Popup>
+                          <div className="text-center font-sans">
+                            <strong className="block mb-2 text-sm">{device.name}</strong>
+                            
+                            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border" style={{
+                              background: markerColor + '1A', // Fondo con 10% opacidad
+                              color: markerColor,
+                              borderColor: markerColor + '4D' // Borde con 30% opacidad
+                            }}>
+                              <span 
+                                className="w-1.5 h-1.5 rounded-full" 
+                                style={{ 
+                                  background: markerColor,
+                                  boxShadow: `0 0 6px ${markerColor}`
+                                }} 
+                              />
+                              {device.status === 'online' ? (aqiData ? aqiData.category : 'En línea') : 'Desconectado'}
+                            </div>
+                          </div>
+                        </Popup>
+                      </Marker>
+                    )
+                  )
+                })}
+              </MapContainer>
             </div>
-
-          </div>
-        </Popup>
-      </Marker>
-    )
-  ))}
-</MapContainer>
-             </div>
           </div>
 
-          {/* Lista Rápida de Dispositivos */}
           <div className="rounded-3xl p-8 flex flex-col" style={{ background: 'var(--card)', border: '1px solid var(--border)', boxShadow: '0 4px 24px rgba(0,0,0,0.02)' }}>
             <h2 className="text-xl font-bold mb-6" style={{ color: 'var(--text)', fontFamily: "'Syne', sans-serif" }}>Estado de red</h2>
             
             <div className="space-y-2 overflow-y-auto overflow-x-hidden max-h-[350px] pr-2">
-              {devices.slice(0, 6).map((device) => (
+              {devices.slice(0, 6).map((device) => {
+                const aqiData = aqis[device.id]
+                const dotColor = device.status === 'online' && aqiData ? getAqiColor(aqiData.category) : (device.status === 'online' ? '#2BA8A0' : '#F59E0B')
+                
+                return (
                 <div key={device.id} className="flex items-center justify-between py-3 border-b last:border-0 hover:bg-black/[0.02] dark:hover:bg-white/[0.02] px-2 rounded-xl transition-colors" style={{ borderColor: 'var(--border)' }}>
                   <div className="flex items-center gap-3">
                     <div 
                       className="w-2.5 h-2.5 rounded-full flex-shrink-0" 
                       style={{ 
-                        background: device.status === 'online' ? '#2BA8A0' : '#F59E0B', 
-                        boxShadow: `0 0 10px ${device.status === 'online' ? '#2BA8A080' : '#F59E0B80'}` 
+                        background: dotColor, 
+                        boxShadow: `0 0 10px ${dotColor}80` 
                       }} 
                     />
                     <div className="min-w-0">
@@ -219,7 +250,7 @@ export default function ClientDashboard() {
                     <Navigation size={16} />
                   </button>
                 </div>
-              ))}
+              )})}
               
               {devices.length === 0 && (
                 <p className="text-sm text-center py-6 font-medium" style={{ color: 'var(--text2)' }}>

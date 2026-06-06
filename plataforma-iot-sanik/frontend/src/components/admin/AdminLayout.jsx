@@ -4,42 +4,29 @@ import useAuthStore from '../../store/auth'
 import useThemeStore from '../../store/theme'
 import { LayoutDashboard, Users, Cpu, Settings, LogOut, Shield, FileText, ChevronRight, Sun, Moon, Menu, X } from 'lucide-react'
 
+
+import logoImg from "../../assets/logo2.svg";
+
+
 const COLORS = {
   primary: "#67B7E8",
   primaryHover: "rgba(103, 183, 232, 0.1)",
   primaryActive: "rgba(103, 183, 232, 0.15)",
 };
-const AirSunBoxLogo = ({ size = 140 }) => (
-  <svg width={size} height={(size * 500) / 900} viewBox="0 0 900 500" xmlns="http://www.w3.org/2000/svg">
-    <style>{`
-       @keyframes float {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-8px); }
-  }
-  .logo-float-admin { animation: float 5s ease-in-out infinite; }
-  .lbl-sidebar { stroke: #67B7E8; fill: none; stroke-width: 10; stroke-linecap: round; stroke-linejoin: round; }
-  .lbt-sidebar { fill: #67B7E8; font-family: 'Syne', Arial, sans-serif; font-size: 72px; font-weight: bold; }
-    `}</style>
-    <circle className="lbl-sidebar" cx="260" cy="220" r="110"/>
-    <line className="lbl-sidebar" x1="260" y1="60" x2="260" y2="10"/>
-    <line className="lbl-sidebar" x1="260" y1="380" x2="260" y2="430"/>
-    <line className="lbl-sidebar" x1="110" y1="220" x2="50" y2="220"/>
-    <line className="lbl-sidebar" x1="410" y1="220" x2="470" y2="220"/>
-    <line className="lbl-sidebar" x1="150" y1="110" x2="105" y2="65"/>
-    <line className="lbl-sidebar" x1="370" y1="330" x2="415" y2="375"/>
-    <line className="lbl-sidebar" x1="370" y1="110" x2="415" y2="65"/>
-    <line className="lbl-sidebar" x1="150" y1="330" x2="105" y2="375"/>
-    <line className="lbl-sidebar" x1="205" y1="80" x2="185" y2="35"/>
-    <line className="lbl-sidebar" x1="315" y1="80" x2="335" y2="35"/>
-    <line className="lbl-sidebar" x1="205" y1="360" x2="185" y2="405"/>
-    <line className="lbl-sidebar" x1="315" y1="360" x2="335" y2="405"/>
-    <path className="lbl-sidebar" d="M470 180 C540 180,560 180,600 180 C650 180,670 120,620 120 C585 120,575 150,590 160"/>
-    <path className="lbl-sidebar" d="M450 220 C560 220,620 220,720 220 C790 220,810 140,740 140 C700 140,690 180,715 190"/>
-    <path className="lbl-sidebar" d="M470 280 C560 280,620 280,680 280 C740 280,760 350,700 350 C660 350,655 310,680 300"/>
-    <path className="lbl-sidebar" d="M720 270 C780 270,790 270,810 270 C850 270,860 330,820 330 C790 330,785 300,800 290"/>
-    <text className="lbt-sidebar" x="340" y="430">AirSunBox</text>
-  </svg>
-)
+
+
+const AirSunBoxLogo = ({ size = 48 }) => (
+  <img 
+    src={logoImg} 
+    alt="AirSunBox Logo" 
+    style={{
+      width: size,
+      height: "auto", // Mantiene la proporción original automáticamente
+      display: "block"
+    }}
+  />
+);
+
 const NAV = [
   { label: 'Dashboard',   icon: LayoutDashboard, path: '/admin', roles: ['superadmin', 'admin', 'worker'] },
   { label: 'Clientes',    icon: Users,           path: '/admin/clientes', roles: ['superadmin', 'admin'] },
@@ -80,9 +67,10 @@ export default function AdminLayout({ children }) {
 
         {/* Header Logo */}
         <div className="pt-8 pb-6 px-8 flex flex-col items-start gap-2 relative">
-           <div className="logo-float-admin">
-              <AirSunBoxLogo size={160} />
-            </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {/* El logo de la barra de navegación ahora usa la imagen */}
+          <AirSunBoxLogo size={150} />
+        </div>
           <span className="text-[10px] font-bold px-2.5 py-1 rounded-md tracking-wide uppercase" style={{background: COLORS.primaryHover, color: COLORS.primary}}>
             Panel de Control
           </span>

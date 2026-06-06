@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import useAuthStore from './store/auth'
 import Landing from './pages/Landing'
+import PublicMap from './pages/PublicMap'
 import Login from './pages/Login'
 import Devices from './pages/Devices'
 import Dashboard from './pages/Dashboard'
@@ -61,7 +62,7 @@ export default function App() {
         {/* Rutas Públicas */}
         <Route path="/"      element={<PublicRoute><Landing /></PublicRoute>} />
         <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
-
+        <Route path="/mapa"  element={<PublicRoute><PublicMap /></PublicRoute>} />
         {/* --- RUTAS EXCLUSIVAS DE CLIENTES (CORREGIDAS) --- */}
         <Route path="/variableDetail/:deviceId/:variableLabel" element={<ProtectedRoute allowedRoles={['client']}><VariableDetail /></ProtectedRoute>} />
         {/* ARREGLO 2: Ruta base del Dashboard agregada */}

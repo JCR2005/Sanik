@@ -1,9 +1,9 @@
 // VariableDetail.jsx - Frontend Completo
 import { useEffect, useState, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Area, AreaChart } from 'recharts'
+import { XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Area, AreaChart, ReferenceArea } from 'recharts'
 import ClienteLayout from '../components/sanik/ClienteLayout'
-import { devices as devicesApi, dots as dotsApi } from '../services/api' 
+import { devices as devicesApi, dots as dotsApi, variables as variablesApi } from '../services/api' 
 
 import { 
   ArrowLeft, Download, Trash2, Clock, Calendar, AlertCircle, ChevronLeft, ChevronRight, BarChart2, Check
@@ -29,7 +29,7 @@ const SAMPLE_PERIODS = [
   { value: '6 hours', label: '6 hours' }
 ]
 
-// Mapeado estructurado de los Quick Ranges vistos en image_f6f93e.png
+// Mapeado estructurado de los Quick Ranges
 const QUICK_RANGES = [
   { id: 'last_1_hour', label: 'Last 1 hour' },
   { id: 'today', label: 'Today' },
@@ -44,6 +44,15 @@ const QUICK_RANGES = [
   { id: 'this_year', label: 'This year' }
 ]
 
+// DICCIONARIO DE COLORES PARA EL ICA
+const AQI_COLORS = {
+  'Excelente': '#10B981',  // Verde
+  'Buena': '#FBBF24',      // Amarillo
+  'Precaución': '#F59E0B', // Naranja
+  'Mala': '#EF4444',       // Rojo
+  'Peligrosa': '#8B5CF6'   // Morado/Violeta
+}
+
 export default function VariableDetail() {
   const { deviceId, variableLabel } = useParams()
   const navigate = useNavigate()
@@ -56,7 +65,10 @@ export default function VariableDetail() {
   const [samplePeriod, setSamplePeriod] = useState('1 minute') 
   const [deviceInfo, setDeviceInfo] = useState(null)
 
-  // Estados del Menú Avanzado de Tiempo (Estilo image_f6f924.png)
+  // Estado para guardar los rangos (Excelente, Buena, etc.)
+  const [ranges, setRanges] = useState([])
+
+  // Estados del Menú Avanzado de Tiempo
   const [showTimeDropdown, setShowTimeDropdown] = useState(false)
   const [selectedRange, setSelectedRange] = useState('last_24_hours')
   const [customStartDate, setCustomStartDate] = useState('')
@@ -78,7 +90,7 @@ export default function VariableDetail() {
   const cleanVariable = String(variableLabel || '').toLowerCase()
   const isRawMode = aggregation === 'raw'
 
-  // Manejador para cerrar el menú desplegable al hacer clic fuera del componente
+  // Manejador para cerrar el menú desplegable al hacer clic fuera
   useEffect(() => {
     function handleClickOutside(event) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -89,7 +101,7 @@ export default function VariableDetail() {
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [])
 
-  // Hook de sincronización de datos para renderizado de la gráfica de área
+  // Hook de sincronización de datos para la gráfica y los rangos
   useEffect(() => {
     let active = true
     const loadChartData = async () => {
@@ -100,7 +112,15 @@ export default function VariableDetail() {
           if (active && dev) setDeviceInfo(dev)
         }
 
-        // Ejecutar petición pasando parámetros unificados del selector
+        // 1. Obtener los rangos de esta variable para pintar el fondo (colores)
+        try {
+          const rangesData = await variablesApi.getRanges(cleanVariable)
+          if (active && rangesData) setRanges(rangesData)
+        } catch (err) {
+          console.warn("No se pudieron cargar los rangos, la gráfica se mostrará sin fondo de colores.", err)
+        }
+
+        // 2. Ejecutar petición de datos para la línea de la gráfica
         const result = await dotsApi.get(
           deviceId, cleanVariable, 
           activeTimeFilter.range || '', 
@@ -231,10 +251,10 @@ export default function VariableDetail() {
             </div>
           </div>
 
-          {/* MENÚ DE FILTRADO SUPERIOR REESTRUCTURADO (ESTILO UBIDOTS) */}
+          {/* MENÚ DE FILTRADO SUPERIOR REESTRUCTURADO */}
           <div className="flex flex-col md:flex-row items-center gap-4 border rounded-2xl p-4 shadow-sm" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
             
-            {/* COMPONENTE INTERACTIVO 1: DROPDOWN AVANZADO DE RANGOS DE TIEMPO */}
+            {/* DROPDOWN AVANZADO DE RANGOS DE TIEMPO */}
             <div className="relative w-full md:w-auto" ref={dropdownRef}>
               <button
                 onClick={() => setShowTimeDropdown(!showTimeDropdown)}
@@ -300,7 +320,6 @@ export default function VariableDetail() {
                       </div>
                     </div>
 
-                    {/* Botones de acción del panel inferior */}
                     <div className="flex items-center justify-end gap-2 pt-4 border-t border-gray-100 dark:border-zinc-800 mt-4">
                       <button 
                         onClick={() => setShowTimeDropdown(false)}
@@ -321,7 +340,7 @@ export default function VariableDetail() {
               )}
             </div>
 
-            {/* COMPONENTE INTERACTIVO 2: FUNCIÓN DE AGREGACIÓN */}
+            {/* FUNCIÓN DE AGREGACIÓN */}
             <div className="flex items-center justify-between w-full md:w-auto gap-3 md:border-l md:pl-4" style={{ borderColor: 'var(--border)' }}>
               <div className="flex items-center gap-2 text-xs font-bold text-var(--text2)" style={{ color: 'var(--text2)' }}>
                 <BarChart2 size={14} className="text-[#67B7E8]" />
@@ -339,7 +358,7 @@ export default function VariableDetail() {
               </select>
             </div>
 
-            {/* COMPONENTE INTERACTIVO 3: PERÍODO DE MUESTREO (BLOQUEADO EN RAW) */}
+            {/* PERÍODO DE MUESTREO */}
             <div className={`flex items-center justify-between w-full md:w-auto gap-3 md:border-l md:pl-4 transition-all duration-300 ${isRawMode ? 'opacity-30 pointer-events-none' : 'opacity-100'}`}>
               <div className="flex items-center gap-2 text-xs font-bold text-var(--text2)" style={{ color: 'var(--text2)' }}>
                 <Clock size={14} className="text-[#67B7E8]" />
@@ -358,7 +377,6 @@ export default function VariableDetail() {
               </select>
             </div>
 
-            {/* BOTÓN EXPORTAR ALINEADO A LA DERECHA */}
             <button
               onClick={exportToCSV}
               className="w-full md:w-auto md:ml-auto flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs font-black bg-[#1D9E75] text-white shadow-sm hover:bg-[#157858] transition-all"
@@ -367,7 +385,7 @@ export default function VariableDetail() {
             </button>
           </div>
 
-          {/* AREA GRÁFICA RESPONSIVA */}
+          {/* AREA GRÁFICA RESPONSIVA CON FONDOS DE COLORES */}
           <div className="border rounded-[2.5rem] p-6 shadow-sm relative min-h-[400px]" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
             {loadingChart && (
               <div className="absolute inset-0 bg-white/60 dark:bg-black/60 rounded-[2.5rem] z-20 flex items-center justify-center backdrop-blur-sm">
@@ -398,6 +416,22 @@ export default function VariableDetail() {
                     contentStyle={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 16, color: 'var(--text)' }}
                     itemStyle={{ fontWeight: '900' }}
                   />
+                  
+                  {/* MAGIA DE COLORES: Bandas de fondo según los rangos (ReferenceArea) */}
+                  {ranges.map((r, idx) => {
+                    const isInfinite = r.max_value === 999999
+                    return (
+                      <ReferenceArea 
+                        key={idx} 
+                        y1={r.min_value} 
+                        y2={isInfinite ? undefined : r.max_value} 
+                        fill={AQI_COLORS[r.category] || '#ccc'} 
+                        fillOpacity={0.15} // Opacidad baja para no tapar la línea ni la cuadrícula
+                        ifOverflow="hidden"
+                      />
+                    )
+                  })}
+
                   <Area type="monotone" dataKey="value" stroke="#1D9E75" strokeWidth={3} fillOpacity={1} fill="url(#colorValue)" name={isRawMode ? "Valor Crudo" : "Valor Agregado"} />
                 </AreaChart>
               </ResponsiveContainer>

@@ -65,4 +65,17 @@ export default async function variablesRoutes(app) {
 
     return { message: 'Variable eliminada correctamente.' }
   })
+
+  // ── 4. OBTENER RANGOS DE CALIDAD DE AIRE POR VARIABLE ───────────────────
+  app.get('/ranges/:label', async (req) => {
+    const cleanLabel = req.params.label.toLowerCase().trim()
+    const { rows } = await app.db.query(
+      `SELECT min_value, max_value, category 
+       FROM air_quality_ranges 
+       WHERE variable_label = $1
+       ORDER BY min_value ASC`,
+      [cleanLabel]
+    )
+    return rows
+  })
 }
