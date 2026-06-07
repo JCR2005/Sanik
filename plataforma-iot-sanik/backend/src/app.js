@@ -26,9 +26,10 @@ const app = Fastify({ logger: true })
 await app.register(cors, { 
   origin: [
     'https://voluble-creponne-e6c74f.netlify.app',
+    'http://localhost',
     'http://localhost:5173'
   ],
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization', 'ngrok-skip-browser-warning'],
   credentials: true
 })

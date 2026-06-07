@@ -232,31 +232,31 @@ export default function ClientDevices() {
   return (
     <ClienteLayout>
       <div
-        className="min-h-full px-8 py-10"
+        className="min-h-full px-4 py-6 md:px-8 md:py-10"
         style={{ backgroundImage: 'radial-gradient(circle at 50% -20%, rgba(103,183,232,0.15) 0%, rgba(103,183,232,0.04) 30%, transparent 70%)' }}
       >
 
         {/* ── Encabezado ── */}
-        <div className="mb-8 flex items-end justify-between flex-wrap gap-4">
+        <div className="mb-6 md:mb-8 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold mb-1" style={{ color: 'var(--text)', fontFamily: "'Syne',sans-serif" }}>
+            <h1 className="text-2xl md:text-3xl font-bold mb-1 font-syne" style={{ color: 'var(--text)' }}>
               Mis Estaciones
             </h1>
-            <p className="text-sm" style={{ color: 'var(--text2)' }}>
+            <p className="text-xs md:text-sm" style={{ color: 'var(--text2)' }}>
               {devices.length} estaciones
               {' · '}<span style={{ color: '#2BA8A0' }}>{online} en línea</span>
               {' · '}<span style={{ color: '#F59E0B' }}>{offline} sin señal</span>
             </p>
           </div>
 
-          <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex flex-col xs:flex-row items-start xs:items-center gap-3 w-full sm:w-auto">
             {/* Filtros online/offline */}
-            <div className="flex items-center gap-1 p-1 rounded-xl border" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
+            <div className="flex items-center gap-1 p-1 rounded-xl border w-full xs:w-auto overflow-x-auto" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
               {[['all','Todas'],['online','En línea'],['offline','Sin señal']].map(([key, label]) => (
                 <button
                   key={key}
                   onClick={() => setFilter(key)}
-                  className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap flex-1 xs:flex-none"
                   style={filter === key ? { background: '#67B7E8', color: 'white' } : { color: 'var(--text2)' }}
                 >
                   {label}
@@ -265,13 +265,13 @@ export default function ClientDevices() {
             </div>
 
             {/* Buscador */}
-            <div className="relative">
+            <div className="relative w-full xs:w-56">
               <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: 'var(--text2)' }} />
               <input
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 placeholder="Buscar estación..."
-                className="pl-10 pr-4 py-2.5 rounded-xl text-sm border outline-none w-56"
+                className="pl-10 pr-4 py-2.5 rounded-xl text-sm border outline-none w-full"
                 style={{ background: 'var(--card)', borderColor: 'var(--border)', color: 'var(--text)' }}
               />
             </div>
@@ -281,23 +281,23 @@ export default function ClientDevices() {
         {/* ── Mapa + panel lateral ── */}
         {withGPS > 0 && (
           <div
-            className="rounded-3xl border overflow-hidden mb-8 flex"
-            style={{ background: 'var(--card)', borderColor: 'var(--border)', height: 360 }}
+            className="rounded-3xl border overflow-hidden mb-8 flex flex-col lg:flex-row"
+            style={{ background: 'var(--card)', borderColor: 'var(--border)', height: 'auto', minHeight: 360 }}
           >
             {/* Mapa */}
-            <div className="flex-1 relative" style={{ zIndex: 0 }}>
+            <div className="flex-1 relative min-h-[300px] lg:min-h-0" style={{ zIndex: 0 }}>
               <div
-                className="absolute top-3 left-3 z-10 px-3 py-1.5 rounded-xl text-xs font-semibold"
+                className="absolute top-3 left-3 z-10 px-3 py-1.5 rounded-xl text-[10px] md:text-xs font-semibold"
                 style={{ background: 'var(--card)', color: '#67B7E8', border: '1px solid var(--border)' }}
               >
                 <MapPin size={11} className="inline mr-1" />
-                Clic en una estación para ver detalles
+                Presioná una estación
               </div>
               <DevicesMap devices={filtered} aqis={aqis} onSelect={setSelected} />
             </div>
 
             {/* Panel lateral */}
-            <div className="w-72 border-l flex flex-col" style={{ borderColor: 'var(--border)' }}>
+            <div className="w-full lg:w-72 border-t lg:border-t-0 lg:border-l flex flex-col" style={{ borderColor: 'var(--border)' }}>
 
               {/* Header del panel */}
               <div className="p-4 border-b" style={{ borderColor: 'var(--border)' }}>

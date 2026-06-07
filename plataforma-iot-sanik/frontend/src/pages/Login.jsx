@@ -120,21 +120,19 @@ export default function Login() {
       </div>
 
       {/* ===== LADO DERECHO (Formulario) ===== */}
-      <div className="w-full md:w-1/2 bg-white flex flex-col justify-center items-center p-6 relative">
-        <div className="w-full max-w-md">
+      <div className="w-full md:w-1/2 bg-white flex flex-col justify-center items-center p-6 md:p-12 relative overflow-y-auto">
+        <div className="w-full max-w-md py-8">
           
-            <div className="text-center mb-10">
+            <div className="text-center mb-8 md:mb-10">
             {/* Agregamos justifyContent: "center" y un pequeño margen inferior (mb-6) para que respire */}
             <div 
-              className="mb-6" 
-              style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 20 }}
+              className="mb-6 flex justify-center" 
             >
-              {/* El logo de la barra de navegación ahora usa la imagen */}
-              <AirSunBoxLogo size={300} />
+              <AirSunBoxLogo size={200} />
             </div>
 
-            <h2 className="text-2xl font-bold mb-2" style={{ color: COLORS.text }}>
-              Inicia sesión en tu cuenta
+            <h2 className="text-xl md:text-2xl font-bold mb-2 font-syne" style={{ color: COLORS.text }}>
+              Inicia sesión
             </h2>
             <p className="text-sm" style={{ color: COLORS.textMuted }}>
               Usa tus credenciales para acceder al panel

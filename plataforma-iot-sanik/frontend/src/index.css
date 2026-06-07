@@ -76,3 +76,15 @@ body {
   box-shadow: 0 0 0 4px rgba(77, 182, 255, 0.2);
   border: 2px solid #fff;
 }
+
+@layer utilities {
+  .text-responsive-h1 {
+    @apply text-2xl sm:text-3xl md:text-4xl lg:text-5xl;
+  }
+  .text-responsive-h2 {
+    @apply text-lg sm:text-xl md:text-2xl lg:text-3xl;
+  }
+  .font-syne {
+    font-family: 'Syne', sans-serif;
+  }
+}

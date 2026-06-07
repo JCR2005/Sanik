@@ -109,7 +109,7 @@ export default function ClientDashboard() {
   return (
     <ClienteLayout>
       <div 
-        className="min-h-full px-10 py-10"
+        className="min-h-full px-6 py-6 md:px-10 md:py-10"
         style={{ 
           backgroundImage: 'radial-gradient(circle at 50% -20%, rgba(103,183,232,0.18) 0%, rgba(103,183,232,0.05) 30%, transparent 70%)'
         }}
@@ -120,44 +120,44 @@ export default function ClientDashboard() {
             style={{background:'rgba(245,158,11,0.08)', borderColor:'rgba(245,158,11,0.3)'}}>
             <AlertTriangle size={16} style={{color:'#F59E0B', flexShrink:0}}/>
             <p className="text-sm font-medium" style={{color:'#F59E0B'}}>
-              {offlineCount} estación{offlineCount > 1 ? 'es' : ''} sin conexión. Verificá la alimentación eléctrica o la red WiFi.
+              {offlineCount} estación{offlineCount > 1 ? 'es' : ''} sin conexión.
             </p>
           </div>
         )}
         
-        <div className="mb-10 flex flex-col gap-1">
-          <p className="text-sm font-semibold capitalize tracking-wide" style={{ color: '#67B7E8' }}>
+        <div className="mb-8 md:mb-10 flex flex-col gap-1">
+          <p className="text-xs md:text-sm font-semibold capitalize tracking-wide" style={{ color: '#67B7E8' }}>
             {today}
           </p>
-          <h1 className="text-4xl font-bold tracking-tight" style={{ color: 'var(--text)', fontFamily: "'Syne', sans-serif" }}>
+          <h1 className="text-responsive-h1 font-bold tracking-tight font-syne" style={{ color: 'var(--text)' }}>
             {greetingName ? `Bienvenido, ${greetingName}` : 'Bienvenido'}
           </h1>
-          <p className="text-base mt-2" style={{ color: 'var(--text2)' }}>
+          <p className="text-sm md:text-base mt-2" style={{ color: 'var(--text2)' }}>
             Panel general de monitoreo {org?.name ? `para ${org.name}` : 'de estaciones'}.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6 mb-8 md:mb-10">
           {STAT_CARDS.map(({ label, value, icon: Icon, color, bg }) => (
             <div 
               key={label} 
-              className="group rounded-3xl p-6 transition-all duration-300 hover:-translate-y-1.5 cursor-default" 
+              className="group rounded-3xl p-5 md:p-6 transition-all duration-300 hover:-translate-y-1.5 cursor-default" 
               style={{ 
                 background: 'var(--card)', 
                 border: '1px solid var(--border)',
                 boxShadow: '0 4px 20px rgba(0,0,0,0.02)'
               }}
             >
-              <div className="flex items-center justify-between mb-6">
-                <div className="w-12 h-12 rounded-2xl flex items-center justify-center transition-transform group-hover:scale-110" style={{ background: bg }}>
-                  <Icon size={22} strokeWidth={2.5} style={{ color }} />
+              <div className="flex items-center justify-between mb-4 md:mb-6">
+                <div className="w-10 h-10 md:w-12 md:h-12 rounded-2xl flex items-center justify-center transition-transform group-hover:scale-110" style={{ background: bg }}>
+                  <Icon size={20} className="md:w-[22px]" strokeWidth={2.5} style={{ color }} />
                 </div>
               </div>
               <div className="flex flex-col gap-1">
-                <div className="text-5xl font-bold tracking-tight" style={{ color: 'var(--text)', fontFamily: "'Syne', sans-serif" }}>
+                <div className="text-3xl md:text-5xl font-bold tracking-tight font-syne" style={{ color: 'var(--text)' }}>
                   {value}
                 </div>
-                <span className="text-sm font-medium" style={{ color: 'var(--text2)' }}>
+                <span className="text-xs md:text-sm font-medium" style={{ color: 'var(--text2)' }}>
                   {label}
                 </span>
               </div>
@@ -165,20 +165,20 @@ export default function ClientDashboard() {
           ))}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
           
-          <div className="lg:col-span-2 rounded-3xl p-6 flex flex-col overflow-hidden relative" style={{ background: 'var(--card)', border: '1px solid var(--border)', boxShadow: '0 4px 24px rgba(0,0,0,0.02)', minHeight: '450px' }}>
+          <div className="lg:col-span-2 rounded-3xl p-5 md:p-6 flex flex-col overflow-hidden relative min-h-[350px] md:min-h-[450px]" style={{ background: 'var(--card)', border: '1px solid var(--border)', boxShadow: '0 4px 24px rgba(0,0,0,0.02)' }}>
             <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(103,183,232,0.12)', color: '#67B7E8' }}>
-                <MapPin size={20} strokeWidth={2.5} />
+              <div className="w-8 h-8 md:w-10 md:h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(103,183,232,0.12)', color: '#67B7E8' }}>
+                <MapPin size={18} className="md:w-[20px]" strokeWidth={2.5} />
               </div>
-              <h2 className="text-xl font-bold" style={{ color: 'var(--text)', fontFamily: "'Syne', sans-serif" }}>
-                Ubicación en tiempo real
+              <h2 className="text-responsive-h2 font-bold font-syne" style={{ color: 'var(--text)' }}>
+                Ubicación
               </h2>
             </div>
             
             <div className="flex-1 w-full h-full relative z-0 rounded-2xl overflow-hidden border" style={{ borderColor: 'var(--border)' }}>
-              <MapContainer center={mapCenter} zoom={13} style={{ height: '100%', width: '100%', minHeight: '350px' }}>
+              <MapContainer center={mapCenter} zoom={13} style={{ height: '100%', width: '100%' }} className="h-[300px] md:h-full min-h-[300px]">
                 <TileLayer
                   attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"

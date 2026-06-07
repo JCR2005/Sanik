@@ -158,10 +158,10 @@ export default function AdminLayout({ children }) {
           >
             <Menu size={24} />
           </button>
-          <div className="ml-4 font-bold text-lg" style={{color:'var(--text)', fontFamily: 'Syne'}}>Sanik Admin</div>
+          <div className="ml-4 font-bold text-lg font-syne" style={{color:'var(--text)'}}>Sanik Admin</div>
         </header>
 
-        <main className="flex-1 relative overflow-x-hidden p-6 lg:p-10">
+        <main className="flex-1 relative overflow-x-hidden p-4 md:p-6 lg:p-10">
           {children}
         </main>
       </div>
