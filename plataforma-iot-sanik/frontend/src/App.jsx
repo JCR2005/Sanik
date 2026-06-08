@@ -16,6 +16,7 @@ import AdminVariables from './pages/admin/Variables'
 import AdminRequests from './pages/admin/Requests'
 import ClientDeviceDetail from './pages/DeviceDetail'
 import Reports from './pages/Reports'
+import GlobalReports from './pages/GlobalReports'
 import VariableDetail from './pages/VariableDetail'
 const ADMIN_ROLES = ['admin', 'superadmin', 'worker']
 
@@ -63,6 +64,7 @@ export default function App() {
         <Route path="/"      element={<PublicRoute><Landing /></PublicRoute>} />
         <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
         <Route path="/mapa"  element={<PublicRoute><PublicMap /></PublicRoute>} />
+        <Route path="/reportes-globales" element={<GlobalReports />} />
         {/* --- RUTAS EXCLUSIVAS DE CLIENTES (CORREGIDAS) --- */}
         <Route path="/variableDetail/:deviceId/:variableLabel" element={<ProtectedRoute allowedRoles={['client']}><VariableDetail /></ProtectedRoute>} />
         {/* ARREGLO 2: Ruta base del Dashboard agregada */}

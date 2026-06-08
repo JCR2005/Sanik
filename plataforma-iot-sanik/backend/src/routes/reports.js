@@ -1,3 +1,5 @@
+import { calculateRespiratoryRisk } from '../utils/reportCalculations.js'
+
 export default async function reportsRoutes(app) {
   app.addHook('onRequest', app.authenticate)
 
@@ -25,13 +27,13 @@ export default async function reportsRoutes(app) {
     let query = `
       SELECT 
         d.id, d.name, d.lat, d.lng, 
-        AVG(CASE WHEN dot.variable = 'temperatura' THEN dot.value END) as avg_temp,
-        AVG(CASE WHEN dot.variable = 'humedad' THEN dot.value END) as avg_hum,
-        MAX(CASE WHEN dot.variable = 'temperatura' THEN dot.value END) as max_temp,
-        MIN(CASE WHEN dot.variable = 'temperatura' THEN dot.value END) as min_temp
+        AVG(CASE WHEN dot.variable IN ('temperatura', 'temperature') THEN dot.value END) as avg_temp,
+        AVG(CASE WHEN dot.variable IN ('humedad', 'humidity') THEN dot.value END) as avg_hum,
+        MAX(CASE WHEN dot.variable IN ('temperatura', 'temperature') THEN dot.value END) as max_temp,
+        MIN(CASE WHEN dot.variable IN ('temperatura', 'temperature') THEN dot.value END) as min_temp
       FROM devices d
       JOIN dots dot ON dot.device_id = d.id
-      WHERE dot.variable IN ('temperatura', 'humedad')
+      WHERE dot.variable IN ('temperatura', 'temperature', 'humedad', 'humidity')
     `
     const params = []
     let i = 1
@@ -64,6 +66,8 @@ export default async function reportsRoutes(app) {
       orgId = req.user.orgId
     }
 
+    const targetVars = ['pm25', 'pm10', 'so2', 'nox', 'o3', 'temperatura', 'temperature', 'humedad', 'humidity']
+
     let query = `
       SELECT 
         d.id, d.name, dot.variable,
@@ -72,10 +76,10 @@ export default async function reportsRoutes(app) {
         COUNT(*) as samples
       FROM devices d
       JOIN dots dot ON dot.device_id = d.id
-      WHERE dot.variable ANY(ARRAY['pm25', 'pm10', 'so2', 'nox', 'o3'])
+      WHERE dot.variable = ANY($1)
     `
-    const params = []
-    let i = 1
+    const params = [targetVars]
+    let i = 2
 
     if (orgId) {
       query += ` AND d.org_id = $${i++}`
@@ -92,12 +96,7 @@ export default async function reportsRoutes(app) {
 
     query += ` GROUP BY d.id, d.name, dot.variable`
 
-    // Cambiamos a ANY para el array de variables
-    const finalQuery = query.replace("dot.variable ANY(ARRAY['pm25', 'pm10', 'so2', 'nox', 'o3'])", 
-                                   "dot.variable = ANY($"+(i++)+")")
-    params.push(['pm25', 'pm10', 'so2', 'nox', 'o3'])
-
-    const { rows } = await app.db.query(finalQuery, params)
+    const { rows } = await app.db.query(query, params)
 
     // Agrupar por dispositivo
     const devices = {}
@@ -111,46 +110,7 @@ export default async function reportsRoutes(app) {
       }
     })
 
-    // Calcular nivel de riesgo basado en umbrales (Simplificado)
-    const report = Object.values(devices).map(dev => {
-      let riskScore = 0
-      let criticalVar = null
-      
-      // PM2.5: Bueno (0-12), Moderado (13-35), Riesgoso (>35)
-      if (dev.variables.pm25) {
-        const val = dev.variables.pm25.avg
-        if (val > 35) { riskScore = Math.max(riskScore, 3); criticalVar = 'PM2.5' }
-        else if (val > 12) riskScore = Math.max(riskScore, 2)
-        else riskScore = Math.max(riskScore, 1)
-      }
-
-      // PM10: Bueno (0-54), Moderado (55-154), Riesgoso (>154)
-      if (dev.variables.pm10) {
-        const val = dev.variables.pm10.avg
-        if (val > 154) { riskScore = Math.max(riskScore, 3); criticalVar = 'PM10' }
-        else if (val > 54) riskScore = Math.max(riskScore, 2)
-        else riskScore = Math.max(riskScore, 1)
-      }
-
-      // SO2: Bueno (0-75), Moderado (76-185), Riesgoso (>185)
-      if (dev.variables.so2) {
-        const val = dev.variables.so2.avg
-        if (val > 185) { riskScore = Math.max(riskScore, 3); criticalVar = 'SO₂' }
-        else if (val > 75) riskScore = Math.max(riskScore, 2)
-        else riskScore = Math.max(riskScore, 1)
-      }
-
-      const riskLevels = ['Indeterminado', 'Bajo', 'Moderado', 'Alto']
-      return {
-        ...dev,
-        riskLevel: riskLevels[riskScore],
-        criticalVar,
-        conclusion: riskScore >= 3 
-          ? 'Calidad del aire deficiente. Se recomienda limitar actividades al aire libre para grupos vulnerables.'
-          : 'Calidad del aire dentro de niveles aceptables para la población general.'
-      }
-    })
-
-    return report
+    return calculateRespiratoryRisk(devices)
   })
 }
+

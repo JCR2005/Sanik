@@ -1,3 +1,6 @@
+import { calculateRespiratoryRisk } from '../utils/reportCalculations.js'
+import { analyzeEnvironmentalImpact } from '../utils/environmentalAnalysis.js'
+
 export default async function publicRoutes(app) {
 
   // ── 1. LISTAR TODOS LOS DISPOSITIVOS PÚBLICOS CON COORDENADAS ──
@@ -18,6 +21,7 @@ export default async function publicRoutes(app) {
 
   // ── 2. OBTENER EL AQI Y MÉTRICAS EN TIEMPO REAL ──
   app.get('/devices/:id/aqi', async (req, reply) => {
+    // ... (existing implementation)
     // Variables exclusivas para la fórmula del AQI
     const AQI_VARS = ['co', 'co2', 'nh3', 'nox', 'no2', 'o3', 'so2', 'pm25', 'pm10']
     // Arreglo completo que incluye métricas meteorológicas
@@ -100,4 +104,123 @@ export default async function publicRoutes(app) {
       return reply.code(500).send({ error: 'Error al calcular el AQI público.' })
     }
   })
-}
+
+  // ── 3. REPORTES GLOBALES PÚBLICOS ──
+  
+  // Estadísticas globales
+  app.get('/reports/stats', async () => {
+    const { rows: [stats] } = await app.db.query(`
+      SELECT 
+        (SELECT COUNT(*) FROM organizations WHERE slug != 'sanik-internal') as total_clients,
+        (SELECT COUNT(*) FROM devices) as total_devices,
+        (SELECT COUNT(*) FROM devices WHERE last_seen > NOW() - INTERVAL '5 minutes') as active_devices,
+        (SELECT COUNT(*) FROM requests WHERE status = 'pending') as pending_requests
+    `)
+    return stats
+  })
+
+  // Heatmap global
+  app.get('/reports/heatmap', async (req) => {
+    let { start, end } = req.query
+    let query = `
+      SELECT 
+        d.id, d.name, d.lat, d.lng, 
+        AVG(CASE WHEN dot.variable IN ('temperatura', 'temperature') THEN dot.value END) as avg_temp,
+        AVG(CASE WHEN dot.variable IN ('humedad', 'humidity') THEN dot.value END) as avg_hum,
+        MAX(CASE WHEN dot.variable IN ('temperatura', 'temperature') THEN dot.value END) as max_temp,
+        MIN(CASE WHEN dot.variable IN ('temperatura', 'temperature') THEN dot.value END) as min_temp
+      FROM devices d
+      JOIN dots dot ON dot.device_id = d.id
+      WHERE dot.variable IN ('temperatura', 'temperature', 'humedad', 'humidity')
+    `
+    const params = []
+    let i = 1
+    if (start) {
+      query += ` AND dot.time >= $${i++}`
+      params.push(start)
+    }
+    if (end) {
+      query += ` AND dot.time <= $${i++}`
+      params.push(end)
+    }
+    query += ` GROUP BY d.id, d.name, d.lat, d.lng`
+    const { rows } = await app.db.query(query, params)
+    return rows
+  })
+
+  // Riesgo respiratorio global
+  app.get('/reports/respiratory-risk', async (req) => {
+    let { start, end } = req.query
+    const targetVars = ['pm25', 'pm10', 'so2', 'nox', 'o3', 'temperatura', 'temperature', 'humedad', 'humidity']
+    let query = `
+      SELECT 
+        d.id, d.name, dot.variable,
+        AVG(dot.value) as avg_value,
+        MAX(dot.value) as max_value,
+        COUNT(*) as samples
+      FROM devices d
+      JOIN dots dot ON dot.device_id = d.id
+      WHERE dot.variable = ANY($1)
+    `
+    const params = [targetVars]
+    let i = 2
+    if (start) {
+      query += ` AND dot.time >= $${i++}`
+      params.push(start)
+    }
+    if (end) {
+      query += ` AND dot.time <= $${i++}`
+      params.push(end)
+    }
+    query += ` GROUP BY d.id, d.name, dot.variable`
+    const { rows } = await app.db.query(query, params)
+    const devices = {}
+    rows.forEach(row => {
+      if (!devices[row.id]) {
+        devices[row.id] = { id: row.id, name: row.name, variables: {} }
+      }
+      devices[row.id].variables[row.variable] = {
+        avg: parseFloat(row.avg_value),
+        max: parseFloat(row.max_value)
+      }
+    })
+    return calculateRespiratoryRisk(devices)
+    })
+
+    // Reporte de contaminación ambiental global
+    app.get('/reports/environmental', async (req) => {
+    let { start, end } = req.query
+    const targetVars = ['pm25', 'pm10', 'co', 'o3', 'so2', 'nox', 'h2s']
+    let query = `
+      SELECT 
+        d.id, d.name, d.lat, d.lng, dot.variable,
+        AVG(dot.value) as avg_value
+      FROM devices d
+      JOIN dots dot ON dot.device_id = d.id
+      WHERE dot.variable = ANY($1)
+    `
+    const params = [targetVars]
+    let i = 2
+    if (start) {
+      query += ` AND dot.time >= $${i++}`
+      params.push(start)
+    }
+    if (end) {
+      query += ` AND dot.time <= $${i++}`
+      params.push(end)
+    }
+    query += ` GROUP BY d.id, d.name, d.lat, d.lng, dot.variable`
+    const { rows } = await app.db.query(query, params)
+
+    const devices = {}
+    rows.forEach(row => {
+      if (!devices[row.id]) {
+        devices[row.id] = { id: row.id, name: row.name, lat: row.lat, lng: row.lng, variables: {} }
+      }
+      devices[row.id].variables[row.variable] = {
+        avg: parseFloat(row.avg_value)
+      }
+    })
+    return analyzeEnvironmentalImpact(devices)
+    })
+    }

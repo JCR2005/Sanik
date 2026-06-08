@@ -5,7 +5,8 @@ import useAuthStore from '../store/auth'
 import { reports as reportsApi, organizations as orgsApi } from '../services/api'
 import { 
   BarChart3, Thermometer, Wind, Filter, Calendar, 
-  Map as MapIcon, Download, AlertCircle, Info, RefreshCw 
+  Map as MapIcon, Download, AlertCircle, Info, RefreshCw,
+  ArrowUpDown, ArrowUp, ArrowDown
 } from 'lucide-react'
 
 // Leaflet
@@ -106,6 +107,17 @@ export default function Reports() {
   const [loading, setLoading] = useState(true)
   const [heatmapData, setHeatmapData] = useState([])
   const [riskData, setRiskData] = useState([])
+  const [sortOrder, setSortOrder] = useState('desc') // 'asc' | 'desc'
+  
+  const toggleSort = () => {
+    const nextOrder = sortOrder === 'desc' ? 'asc' : 'desc'
+    setSortOrder(nextOrder)
+    const sorted = [...riskData].sort((a, b) => {
+      return nextOrder === 'desc' ? b.riskScore - a.riskScore : a.riskScore - b.riskScore
+    })
+    setRiskData(sorted)
+  }
+
   const [orgs, setOrgs] = useState([])
   
   // Filtros
@@ -130,7 +142,10 @@ export default function Reports() {
         setHeatmapData(data)
       } else {
         const data = await reportsApi.getRespiratoryRisk(filters.orgId, filters.start, filters.end)
-        setRiskData(data)
+        const sorted = [...data].sort((a, b) => {
+          return sortOrder === 'desc' ? b.riskScore - a.riskScore : a.riskScore - b.riskScore
+        })
+        setRiskData(sorted)
       }
     } catch (err) {
       console.error(err)
@@ -391,8 +406,17 @@ export default function Reports() {
                   <thead>
                     <tr className="bg-black/5 dark:bg-white/5 border-b" style={{ borderColor: 'var(--border)' }}>
                       <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text2)' }}>Estación / Zona</th>
-                      <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-center" style={{ color: 'var(--text2)' }}>Nivel de Riesgo</th>
-                      <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-center" style={{ color: 'var(--text2)' }}>Variable Crítica</th>
+                      <th 
+                        className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-center cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 transition-colors" 
+                        style={{ color: 'var(--text2)' }}
+                        onClick={toggleSort}
+                      >
+                        <div className="flex items-center justify-center gap-2">
+                          Nivel de Riesgo
+                          {sortOrder === 'desc' ? <ArrowDown size={14} /> : <ArrowUp size={14} />}
+                        </div>
+                      </th>
+                      <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-center" style={{ color: 'var(--text2)' }}>Enfermedad Probable</th>
                       <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text2)' }}>Recomendación</th>
                     </tr>
                   </thead>
@@ -412,8 +436,7 @@ export default function Reports() {
                           </span>
                         </td>
                         <td className="px-6 py-4 text-center">
-                          <div className="text-xs font-bold" style={{ color: 'var(--text)' }}>{row.criticalVar || 'Ninguna'}</div>
-                          <div className="text-[10px] text-gray-400">{row.variables[row.criticalVar?.toLowerCase()]?.avg.toFixed(1) || '—'} µg/m³</div>
+                          <div className="text-xs font-bold" style={{ color: 'var(--text)' }}>{row.disease || 'Estable'}</div>
                         </td>
                         <td className="px-6 py-4 max-w-xs">
                           <p className="text-xs leading-relaxed" style={{ color: 'var(--text2)' }}>{row.conclusion}</p>

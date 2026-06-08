@@ -466,6 +466,9 @@ export default function Landing() {
           <a href="#sensores" className="nav-link" onClick={() => setMenuOpen(false)}>
             Sensores
           </a>
+          <Link to="/reportes-globales" className="nav-link" onClick={() => setMenuOpen(false)}>
+            Reportes
+          </Link>
           <a href="#precios" className="nav-link" onClick={() => setMenuOpen(false)}>
             Precios
           </a>
