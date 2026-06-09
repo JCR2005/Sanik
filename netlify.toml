@@ -12,3 +12,8 @@
 [functions]
   # Si tienes funciones de Netlify dentro de tu frontend
   directory = "netlify/functions"
+  
+[[redirects]]
+from = "/*"
+to = "/index.html"
+status = 200
