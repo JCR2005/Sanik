@@ -47,7 +47,9 @@ export const devices = {
   
   
   listPublic: () => request('/public/devices'),
-  aqiPublic: (id) => request(`/public/devices/${id}/aqi`)
+  aqiPublic:  (id)  => request(`/public/devices/${id}/aqi`),
+  zonaAqi:    (ids) => request(`/public/zones/aqi?ids=${ids.join(',')}`)
+
 }
 
 export const variables = {
