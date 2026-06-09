@@ -131,6 +131,7 @@ async function getResumenZona(nombreZona) {
   };
 }
 
+
 /**
  * Resumen general: mejor y peor zona ahora mismo.
  */
