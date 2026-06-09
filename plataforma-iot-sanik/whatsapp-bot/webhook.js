@@ -165,7 +165,7 @@ async function getResumenGeneral() {
   const zonas = Object.entries(zonasConDatos);
   if (zonas.length === 0) {
     return {
-      mensaje_wa: '⚫ No hay estaciones activas en este momento en Xela.\n\nVer mapa: https://tu-sitio.gt/mapa',
+      mensaje_wa: '⚫ No hay estaciones activas en este momento en Xela.\n\nVer mapa: https://voluble-creponne-e6c74f.netlify.app/mapa',
     };
   }
 
@@ -181,7 +181,7 @@ async function getResumenGeneral() {
     ``,
     `Zonas monitoreadas: ${zonas.length}`,
     ``,
-    `Ver mapa completo: https://tu-sitio.gt/mapa`,
+    `Ver mapa completo: https://voluble-creponne-e6c74f.netlify.app/mapa`,
     `Escribí el nombre de una zona para más detalle.`,
   ];
 
@@ -199,7 +199,7 @@ function formatearMensajeWA(nombreZona, data) {
       `⚫ *${nombreZona}*`,
       `Sin estaciones activas en este momento.`,
       ``,
-      `Ver mapa: https://tu-sitio.gt/mapa`,
+      `Ver mapa: https://voluble-creponne-e6c74f.netlify.app/mapa`,
     ].join('\n');
   }
 
@@ -220,7 +220,7 @@ function formatearMensajeWA(nombreZona, data) {
 
   lineas.push(``, `Estaciones: ${data.online_count ?? '?'} activas`);
   lineas.push(``, RECOMENDACIONES[data.category] ?? '');
-  lineas.push(``, `Ver mapa: https://tu-sitio.gt/mapa`);
+  lineas.push(``, `Ver mapa: https://voluble-creponne-e6c74f.netlify.app/mapa`);
 
   return lineas.join('\n');
 }

@@ -11,6 +11,7 @@ async function request(path, options = {}) {
     res = await fetch(`${BASE}${path}`, {
       headers: {
         'Content-Type': 'application/json',
+        'bypass-tunnel-reminder': 'true',
         'ngrok-skip-browser-warning': 'true', 
         ...(token ? { Authorization: `Bearer ${token}` } : {})
       },
