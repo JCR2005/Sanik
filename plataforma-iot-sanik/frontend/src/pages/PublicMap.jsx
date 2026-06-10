@@ -257,12 +257,34 @@ const ZonaSpotlightLayer = ({ zonaFeature }) => {
   );
 };
 
-const ZonaZoomLayer = ({ zonaFeature }) => {
+const ZonaZoomLayer = ({ zonaFeature, isDeviceSelected }) => {
   const map = useMap();
+  const prevDeviceSelected = useRef(false);
+
   useEffect(() => {
     if (!zonaFeature) return;
-    map.flyTo(getFeatureBounds(zonaFeature).getCenter(), 15.9, { animate: true, duration: 1.0 });
-  }, [map, zonaFeature]);
+    
+    // Zoom inicial al entrar a la zona
+    if (!isDeviceSelected && !prevDeviceSelected.current) {
+      map.flyTo(getFeatureBounds(zonaFeature).getCenter(), 15.9, { animate: true, duration: 1.0 });
+    }
+    
+    // Zoom de regreso al salir de un dispositivo hacia la zona
+    if (!isDeviceSelected && prevDeviceSelected.current) {
+      map.flyTo(getFeatureBounds(zonaFeature).getCenter(), 15.9, { animate: true, duration: 1.0 });
+    }
+
+    prevDeviceSelected.current = isDeviceSelected;
+  }, [map, zonaFeature, isDeviceSelected]);
+  return null;
+};
+
+const DeviceZoomLayer = ({ device }) => {
+  const map = useMap();
+  useEffect(() => {
+    if (!device || !device.lat || !device.lng) return;
+    map.flyTo([device.lat, device.lng], 18, { animate: true, duration: 1.0 });
+  }, [map, device]);
   return null;
 };
 
@@ -1017,12 +1039,12 @@ const ZonaPanel = ({ zonaFeature, zonaAqiResult, loadingZona, onClose, onSelectD
 };
 
 // ─── PANEL DE DISPOSITIVO ─────────────────────────────────────────────────────
-const DevicePanel = ({ selectedDevice, onClose, onBack, isMobile, currentAqiColor, temp, hum, co2, co }) => {
+const DevicePanel = ({ selectedDevice, onBack, isMobile, currentAqiColor, temp, hum, co2, co }) => {
   if (!selectedDevice) return null;
 
   const panelStyle = isMobile
     ? { position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 2002, backgroundColor: COLORS.bgLight, borderRadius: '24px 24px 0 0', padding: '0 0 env(safe-area-inset-bottom)', boxShadow: '0 -12px 32px rgba(0,0,0,0.1)', maxHeight: '85vh', overflowY: 'auto', scrollbarWidth: 'none', animation: 'fadeIn .2s ease' }
-    : { position: 'fixed', top: '24px', right: '24px', zIndex: 2002, width: '400px', maxHeight: 'calc(100vh - 48px)', overflowY: 'auto', scrollbarWidth: 'none', backgroundColor: COLORS.bgLight, borderRadius: '24px', padding: '24px', boxShadow: '0 12px 40px rgba(0,0,0,0.12)', border: `1px solid ${COLORS.border}`, animation: 'fadeIn .2s ease' };
+    : { position: 'fixed', top: '8%', right: '24px', zIndex: 2002, width: '400px', maxHeight: 'calc(100vh - 48px)', overflowY: 'auto', scrollbarWidth: 'none', backgroundColor: COLORS.bgLight, borderRadius: '24px', padding: '24px', boxShadow: '0 12px 40px rgba(0,0,0,0.12)', border: `1px solid ${COLORS.border}`, animation: 'fadeIn .2s ease' };
 
   return (
     <div style={panelStyle}>
@@ -1032,23 +1054,21 @@ const DevicePanel = ({ selectedDevice, onClose, onBack, isMobile, currentAqiColo
         </div>
       )}
       <div style={{ padding: isMobile ? '16px 20px 28px' : '0' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '8px' }}>
+          <div>
+            <h3 style={{ margin: '0 0 4px', color: COLORS.text, fontSize: '1.3rem', fontWeight: '900' }}>
+              {selectedDevice.name} {selectedDevice.status !== 'online' && '(Inactiva)'}
+            </h3>
+            <p style={{ margin: '0 0 20px', color: COLORS.textMuted, fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '500' }}>
+              <MapPin size={14} /> {selectedDevice.description || 'Estación de monitoreo ambiental'}
+            </p>
+          </div>
           {onBack && (
-            <button onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'none', border: 'none', cursor: 'pointer', color: COLORS.primary, fontSize: '0.85rem', fontWeight: '700', padding: '2px 0' }}>
-              <ArrowLeft size={16} /> Volver a la zona
+            <button onClick={onBack} title="Volver a la zona" style={{ background: 'none', border: 'none', cursor: 'pointer', color: COLORS.textMuted, padding: '4px' }}>
+              <X size={22} />
             </button>
           )}
-          <button onClick={onClose} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: COLORS.textMuted, cursor: 'pointer', padding: '4px' }}>
-            <X size={22} />
-          </button>
         </div>
-
-        <h3 style={{ margin: '0 0 4px', color: COLORS.text, fontSize: '1.3rem', fontWeight: '900' }}>
-          {selectedDevice.name} {selectedDevice.status !== 'online' && '(Inactiva)'}
-        </h3>
-        <p style={{ margin: '0 0 20px', color: COLORS.textMuted, fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '500' }}>
-          <MapPin size={14} /> {selectedDevice.description || 'Estación de monitoreo ambiental'}
-        </p>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', opacity: selectedDevice.status === 'online' ? 1 : 0.6 }}>
           
@@ -1256,7 +1276,8 @@ export default function PublicMap() {
             <AllZonesFitLayer />
             <MapRefSetter />
             <XelaZonasLayer zonaHover={zonaHover} onZonaHover={setZonaHover} onZonaClick={handleZonaClick} selectedZona={selectedZonaFeature?.properties?.zona} />
-            <ZonaZoomLayer zonaFeature={selectedZonaFeature} />
+            <ZonaZoomLayer zonaFeature={selectedZonaFeature} isDeviceSelected={!!selectedDevice} />
+            <DeviceZoomLayer device={selectedDevice} />
             <ZonaSpotlightLayer zonaFeature={selectedZonaFeature} />
             <ResetZoomLayer trigger={resetTrigger} />
             {searchMarker && <SearchMarkerLayer marker={searchMarker} onClose={() => setSearchMarker(null)} />}
@@ -1395,7 +1416,7 @@ export default function PublicMap() {
         )}
 
         {selectedDevice && (
-          <DevicePanel selectedDevice={selectedDevice} onClose={handleCloseDevice} onBack={selectedZonaFeature ? () => setSelectedDevice(null) : null} isMobile={isMobile} currentAqiColor={currentAqiColor} temp={temp} hum={hum} co2={co2} co={co} />
+          <DevicePanel selectedDevice={selectedDevice} onBack={selectedZonaFeature ? () => setSelectedDevice(null) : null} isMobile={isMobile} currentAqiColor={currentAqiColor} temp={temp} hum={hum} co2={co2} co={co} />
         )}
       </div>
 
