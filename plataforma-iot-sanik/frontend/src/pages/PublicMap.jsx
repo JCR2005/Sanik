@@ -22,6 +22,7 @@ import logoUvg        from '../Patrocinadores/logoUVG.png';
 import logoZeppelin   from '../Patrocinadores/Logo-Zeppelin.png';
 import logoXelapan    from '../Patrocinadores/logoxelapan.png';
 import logoMunicipalidad from '../Patrocinadores/xela-logo.png';
+import logoPhara from '../Patrocinadores/phara.jpeg';
 
 const PATROCINADORES = [
   { nombre: 'Cervecería Centroamérica', src: logoCerveceria },
@@ -32,6 +33,7 @@ const PATROCINADORES = [
   { nombre: 'Logo Zeppelin',            src: logoZeppelin   },
   { nombre: 'Xelapan',                  src: logoXelapan    },
   { nombre: 'Municipalidad de Xela',   src: logoMunicipalidad },
+  { nombre: 'Phara',                   src: logoPhara      },
 ];
 
 // ─── COLORES ─────────────────────────────────────────────────────────────────

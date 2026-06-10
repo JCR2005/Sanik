@@ -32,7 +32,7 @@ export default async function publicRoutes(app) {
       const { rows: latestDots } = await app.db.query(
         `SELECT DISTINCT ON (variable) variable, value, time
          FROM dots
-         WHERE device_id = $1::uuid AND variable = ANY($2) AND time > NOW() - INTERVAL '24 hours'
+         WHERE device_id = $1::uuid AND variable = ANY($2) AND time > NOW() - INTERVAL '1 minute'
          ORDER BY variable, time DESC`,
         [req.params.id, ALL_VARS]
       )

@@ -34,6 +34,17 @@ await app.register(cors, {
   credentials: true
 })
 
+app.addHook('onRequest', async (req, reply) => {
+  if (req.method === 'OPTIONS') {
+    reply
+      .header('Access-Control-Allow-Origin', '*')
+      .header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,PATCH,OPTIONS')
+      .header('Access-Control-Allow-Headers', 'Content-Type,Authorization,ngrok-skip-browser-warning,bypass-tunnel-reminder')
+      .code(204)
+      .send()
+  }
+})
+
 await app.register(jwt, {
   secret: process.env.JWT_SECRET || 'sanik_secret_key'
 })

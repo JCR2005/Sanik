@@ -18,7 +18,7 @@ import * as turf from '@turf/turf';
 import ZONAS_GEOJSON from './zonas_quetzaltenango_quetzaltenango.json' with { type: 'json' };
 
 // ─── CONFIGURACIÓN ────────────────────────────────────────────────────────────
-const API_BASE = process.env.API_BASE ?? 'https://air-sun-box.loca.lt';
+const API_BASE = process.env.API_BASE ?? 'https://torchless-unpiteously-raphael.ngrok-free.dev';
 
 // localtunnel bloquea peticiones automáticas con una página de bypass.
 // Este header la salta. Sin él todas las respuestas serían HTML en vez de JSON.
