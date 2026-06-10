@@ -18,31 +18,32 @@ import paymentsRoutes      from './routes/payments.js'
 import requestsRoutes      from './routes/requests.js'
 import incidentsRoutes     from './routes/incidents.js'
 import reportsRoutes       from './routes/reports.js'
-import publicRoutes from './routes/publicRoutes.js'
+import publicRoutes        from './routes/publicRoutes.js'
 
 const app = Fastify({ logger: true })
 
 // ── Plugins globales ──────────────────────────
-await app.register(cors, { 
-  origin: [
-    'https://voluble-creponne-e6c74f.netlify.app',
-    'http://localhost',
-    'http://localhost:5173'
-  ],
+await app.register(cors, {
+  origin: (origin, cb) => {
+    const allowed = [
+      'https://voluble-creponne-e6c74f.netlify.app',
+      'http://localhost',
+      'http://localhost:5173'
+    ]
+    if (!origin || allowed.includes(origin)) {
+      cb(null, true)
+    } else {
+      cb(new Error('Not allowed by CORS'), false)
+    }
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'ngrok-skip-browser-warning', 'bypass-tunnel-reminder'],
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'ngrok-skip-browser-warning',
+    'bypass-tunnel-reminder'
+  ],
   credentials: true
-})
-
-app.addHook('onRequest', async (req, reply) => {
-  if (req.method === 'OPTIONS') {
-    reply
-      .header('Access-Control-Allow-Origin', '*')
-      .header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,PATCH,OPTIONS')
-      .header('Access-Control-Allow-Headers', 'Content-Type,Authorization,ngrok-skip-browser-warning,bypass-tunnel-reminder')
-      .code(204)
-      .send()
-  }
 })
 
 await app.register(jwt, {
