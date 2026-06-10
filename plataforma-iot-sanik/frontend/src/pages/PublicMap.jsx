@@ -14,27 +14,19 @@ import logoImg from "../assets/logo2.svg";
 import * as turf from '@turf/turf';
 import XELA_ZONAS_GEOJSON from '../GeoJasons/zonas_quetzaltenango_quetzaltenango.json';
 
-import logoCerveceria from '../Patrocinadores/Cerveceria_bn.png';
-import logoIntecap    from '../Patrocinadores/intecap.png';
-import logoUsac       from '../Patrocinadores/logousac.png';
-import logoIgss       from '../Patrocinadores/igss.png';
-import logoUvg        from '../Patrocinadores/logoUVG.png';
-import logoZeppelin   from '../Patrocinadores/Logo-Zeppelin.png';
-import logoXelapan    from '../Patrocinadores/logoxelapan.png';
-import logoMunicipalidad from '../Patrocinadores/xela-logo.png';
-import logoPhara from '../Patrocinadores/phara.jpeg';
 
+import logoNeo from '../Patrocinadores/logoNeo.jpeg';
+import logoPhara from '../Patrocinadores/phara.jpeg';
+import logoMontezco from '../Patrocinadores/MONTESCO.png';
+import logoUsac from '../Patrocinadores/logousac.png';
 const PATROCINADORES = [
-  { nombre: 'Cervecería Centroamérica', src: logoCerveceria },
-  { nombre: 'INTECAP',                  src: logoIntecap    },
-  { nombre: 'CUNOC – USAC',             src: logoUsac       },
-  { nombre: 'IGSS',                     src: logoIgss       },
-  { nombre: 'UVG',                      src: logoUvg        },
-  { nombre: 'Logo Zeppelin',            src: logoZeppelin   },
-  { nombre: 'Xelapan',                  src: logoXelapan    },
-  { nombre: 'Municipalidad de Xela',   src: logoMunicipalidad },
+
   { nombre: 'Phara',                   src: logoPhara      },
+  { nombre: 'moontezco',               src: logoMontezco   },
+  { nombre: 'USAC',                    src: logoUsac       },
+  { nombre: 'Neo',                     src: logoNeo        },
 ];
+
 
 // ─── COLORES ─────────────────────────────────────────────────────────────────
 const COLORS = {
@@ -1513,7 +1505,7 @@ export default function PublicMap() {
 
       <div style={{ backgroundColor: COLORS.white, borderTop: `1px solid ${COLORS.border}`, padding: isMobile ? '12px 16px' : '14px 6vw', display: 'flex', alignItems: 'center', gap: isMobile ? '12px' : '24px', flexShrink: 0, zIndex: 999, overflowX: isMobile ? 'auto' : 'visible', scrollbarWidth: 'none' }}>
         <span style={{ fontSize: '0.6rem', fontWeight: '700', color: COLORS.textMuted, textTransform: 'uppercase', letterSpacing: '0.8px', whiteSpace: 'nowrap', paddingRight: isMobile ? '12px' : '20px', borderRight: `1px solid ${COLORS.border}`, flexShrink: 0 }}>
-          {isMobile ? 'Apoyo' : 'Con el apoyo de'}
+          {isMobile ? 'Apoyo' : 'Esta red de nodos de monitoreo es una realidad gracias al compromiso ambiental de'}
         </span>
         <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '16px' : '24px', flexWrap: isMobile ? 'nowrap' : 'wrap', overflowX: isMobile ? 'auto' : 'visible', scrollbarWidth: 'none' }}>
           {PATROCINADORES.map(({ nombre, src }) => (
