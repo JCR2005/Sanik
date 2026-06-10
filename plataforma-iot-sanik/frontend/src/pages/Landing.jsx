@@ -2,11 +2,9 @@ import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 
 // 1. IMPORTAMOS TU IMAGEN DESDE LA CARPETA ASSETS
-// (Asegúrate de cambiar "logo.png" por el nombre exacto de tu archivo en esa carpeta, por ejemplo "AirSunBoxLogo.png")
 import logoImg from "../assets/logo2.svg";
 
 // 3. NUEVO: IMPORTAMOS EL QR DE TU BOT
-// (Asumimos que está en la misma carpeta asset y se llama "qr-bot.png" o similar)
 import qrBotImg from "../assets/qrTelegram.png";
 
 const COLORS = {
@@ -73,6 +71,7 @@ const Reveal = ({ children, delay = 0, style = {} }) => {
     </div>
   );
 };
+
 const FEATURES = [
   {
     icon: (
@@ -136,6 +135,7 @@ const FEATURES = [
     desc: "Autenticación JWT, datos cifrados y 2 años de historial respaldado.",
   },
 ];
+
 const PLANS = [
   {
     name: "Suscripción Patrocinador RSE",
@@ -144,7 +144,7 @@ const PLANS = [
     desc: "Para empresas que quieren visibilidad e impacto ambiental real",
     features: [
       "Logotipo en plataforma web y mapa interactivo",
-      "Mención en alertas del Canal de WhatsApp y Telegram",
+      "Mención en alertas del Canal de WhatsApp",
       "Sello Verde físico con código QR para tu empresa",
       "Acceso a plataforma privada de datos ambientales",
       "20% destinado al Fondo de Acción Climática AirSunBox",
@@ -472,7 +472,6 @@ export default function Landing() {
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          {/* El logo de la barra de navegación ahora usa la imagen */}
           <AirSunBoxLogo size={150} />
         </div>
 
@@ -488,6 +487,17 @@ export default function Landing() {
             gap: 32,
           }}
         >
+          {/* NUEVO: ENLACE DIRECTO AL MAPA EN NETLIFY */}
+          <a 
+            href="https://voluble-creponne-e6c74f.netlify.app/mapa" 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            className="nav-link" 
+            style={{ fontWeight: "700", color: COLORS.accent }}
+            onClick={() => setMenuOpen(false)}
+          >
+            🗺️ Mapa en Vivo
+          </a>
           <a href="#como-funciona" className="nav-link" onClick={() => setMenuOpen(false)}>
             Cómo funciona
           </a>
@@ -539,7 +549,6 @@ export default function Landing() {
             marginBottom: 32,
           }}
         >
-          {/* El logo principal gigante también usa la imagen física limpia */}
           <div className="logo-float" style={{ marginBottom: 24, display: "flex", justifyContent: "center" }}>
             <AirSunBoxLogo size={320} />
           </div>
@@ -595,8 +604,13 @@ export default function Landing() {
           <a href="#precios" className="btn-primary">
             Ver planes →
           </a>
-          <a href="#como-funciona" className="btn-outline">
-            Cómo funciona
+          <a 
+            href="https://voluble-creponne-e6c74f.netlify.app/mapa" 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            className="btn-outline"
+          >
+            Explorar Mapa Abierto
           </a>
         </div>
         
@@ -628,7 +642,7 @@ export default function Landing() {
 
       <hr className="divider" />
 
-      {/* ── SECCIÓN DE BOT DE TELEGRAM ───────────────────────────────────── */}
+      {/* ── SECCIÓN DE BOT DE TELEGRAM (CORREGIDA) ───────────────────────────────────── */}
       <section style={{ padding: "88px 6vw", background: COLORS.bgLight }}>
         <Reveal>
           <div style={{
@@ -654,21 +668,48 @@ export default function Landing() {
               <h2 style={{ fontFamily: "'Syne', sans-serif", fontSize: "clamp(1.6rem,3vw,2.4rem)", fontWeight: "800", color: "#ffffff", lineHeight: 1.1, letterSpacing: "-.02em", marginBottom: "14px" }}>
                 Habla con nuestro Bot<br />
                 <span style={{ color: COLORS.primary }}>en Telegram</span>
-              }</h2>
+              </h2>
               <p style={{ fontSize: ".95rem", color: "rgba(255,255,255,.55)", lineHeight: 1.65, maxWidth: "380px", marginBottom: "28px" }}>
                 Saluda, dinos tu zona (¡o solo pregúntanos!) y obtén los datos al instante, ¡o explora el mapa!
               </p>
-              <div style={{ display: "inline-flex", alignItems: "center", gap: "10px", background: COLORS.accent, color: "#fff", padding: "13px 26px", borderRadius: "12px", fontWeight: "700", fontSize: ".9rem", boxShadow: `0 4px 20px rgba(43,168,160,.4)` }}>
+              
+              {/* ENLACE REAL AL BOT DE TELEGRAM */}
+              <a 
+                href="https://t.me/AIRSUBBOX_BOT" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                style={{ 
+                  display: "inline-flex", 
+                  alignItems: "center", 
+                  gap: "10px", 
+                  background: COLORS.accent, 
+                  color: "#fff", 
+                  padding: "13px 26px", 
+                  borderRadius: "12px", 
+                  fontWeight: "700", 
+                  fontSize: ".9rem", 
+                  boxShadow: `0 4px 20px rgba(43,168,160,.4)`,
+                  textDecoration: "none",
+                  transition: "background 0.2s"
+                }}
+                onMouseEnter={(e) => e.target.style.background = "#228B84"}
+                onMouseLeave={(e) => e.target.style.background = COLORS.accent}
+              >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
                 Usar Bot ahora
-              </div>
+              </a>
             </div>
 
             {/* QR de Bot (Centro) */}
-            <div style={{ position: "relative", zIndex: 1, flexShrink: 0, padding: "16px", borderRadius: "20px", background: "#fff", border: `1.5px solid ${COLORS.border}`, boxShadow: `0 8px 32px rgba(103,183,232,0.1)` }}>
+            <a 
+              href="https://t.me/AIRSUBBOX_BOT" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              style={{ position: "relative", zIndex: 1, flexShrink: 0, padding: "16px", borderRadius: "20px", background: "#fff", border: `1.5px solid ${COLORS.border}`, boxShadow: `0 8px 32px rgba(103,183,232,0.1)`, display: "block" }}
+            >
               <img src={qrBotImg} alt="QR Bot" style={{ width: "160px", height: "160px" }}/>
               <div style={{ color: COLORS.primary, fontSize: "0.82rem", fontWeight: "700", textTransform: "uppercase", textAlign: "center", marginTop: "12px" }}>@AIRSUBBOX_BOT</div>
-            </div>
+            </a>
 
             {/* Simulación de Chat de Bot (Derecha - Animado) */}
             <div style={{ position: "relative", zIndex: 1, flex: "1 1 240px", minWidth: "240px", display: "flex", flexDirection: "column", gap: "10px", opacity: 0.9 }}>
@@ -720,6 +761,28 @@ export default function Landing() {
                   <span style={{ width: "5px", height: "5px", borderRadius: "50%", background: "#34D399" }}/>
                   <span style={{ color: "#34D399" }}>Estación Las Américas 3 — AQI 25</span>
                 </div>
+
+                {/* NUEVO: BOTÓN CLIQUEABLE REAL DENTRO DEL CHAT SIMULADO HACIA EL MAPA */}
+                <a 
+                  href="https://voluble-creponne-e6c74f.netlify.app/mapa" 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  style={{ 
+                    display: "block", 
+                    background: COLORS.primary, 
+                    color: "#fff", 
+                    textAlign: "center", 
+                    padding: "8px 12px", 
+                    borderRadius: "8px", 
+                    fontSize: "0.75rem", 
+                    fontWeight: "700", 
+                    marginTop: "12px", 
+                    boxShadow: "0 4px 12px rgba(103,183,232,0.3)",
+                    textDecoration: "none"
+                  }}
+                >
+                  🗺️ Ver Mapa Público Abierto
+                </a>
               </div>
 
             </div>
@@ -1257,7 +1320,6 @@ export default function Landing() {
         }}
       >
         <Reveal>
-          {/* El logo inferior del cierre de página también adaptado */}
           <div style={{ marginBottom: 16, display: "flex", justifyContent: "center" }}>
             <AirSunBoxLogo size={180} />
           </div>
@@ -1334,7 +1396,6 @@ export default function Landing() {
             margin: "0 auto",
           }}
         >
-          {/* El logo final del footer */}
           <AirSunBoxLogo size={110} />
 
           <p
@@ -1347,6 +1408,19 @@ export default function Landing() {
           </p>
 
           <div style={{ display: "flex", gap: 24 }}>
+            {/* ENLACE AL MAPA EN EL FOOTER TAMBIÉN */}
+            <a
+              href="https://voluble-creponne-e6c74f.netlify.app/mapa"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                color: COLORS.textMuted,
+                fontSize: ".85rem",
+                transition: "color .2s",
+              }}
+            >
+              Mapa Público
+            </a>
             <Link
               to="/login"
               style={{
