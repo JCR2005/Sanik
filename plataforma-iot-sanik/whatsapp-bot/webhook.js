@@ -19,6 +19,7 @@ import ZONAS_GEOJSON from './zonas_quetzaltenango_quetzaltenango.json' with { ty
 
 // ─── CONFIGURACIÓN ────────────────────────────────────────────────────────────
 const API_BASE = process.env.API_BASE ?? 'https://torchless-unpiteously-raphael.ngrok-free.dev';
+
 const LT_HEADERS = { 'bypass-tunnel-reminder': 'true' };
 
 const RECOMENDACIONES = {

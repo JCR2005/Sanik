@@ -14,25 +14,19 @@ import logoImg from "../assets/logo2.svg";
 import * as turf from '@turf/turf';
 import XELA_ZONAS_GEOJSON from '../GeoJasons/zonas_quetzaltenango_quetzaltenango.json';
 
-import logoCerveceria from '../Patrocinadores/Cerveceria_bn.png';
-import logoIntecap    from '../Patrocinadores/intecap.png';
-import logoUsac       from '../Patrocinadores/logousac.png';
-import logoIgss       from '../Patrocinadores/igss.png';
-import logoUvg        from '../Patrocinadores/logoUVG.png';
-import logoZeppelin   from '../Patrocinadores/Logo-Zeppelin.png';
-import logoXelapan    from '../Patrocinadores/logoxelapan.png';
-import logoMunicipalidad from '../Patrocinadores/xela-logo.png';
 
+import logoNeo from '../Patrocinadores/logoNeo.jpeg';
+import logoPhara from '../Patrocinadores/phara.jpeg';
+import logoMontezco from '../Patrocinadores/MONTESCO.png';
+import logoUsac from '../Patrocinadores/logousac.png';
 const PATROCINADORES = [
-  { nombre: 'Cervecería Centroamérica', src: logoCerveceria },
-  { nombre: 'INTECAP',                  src: logoIntecap    },
-  { nombre: 'CUNOC – USAC',             src: logoUsac       },
-  { nombre: 'IGSS',                     src: logoIgss       },
-  { nombre: 'UVG',                      src: logoUvg        },
-  { nombre: 'Logo Zeppelin',            src: logoZeppelin   },
-  { nombre: 'Xelapan',                  src: logoXelapan    },
-  { nombre: 'Municipalidad de Xela',   src: logoMunicipalidad },
+
+  { nombre: 'Phara',                   src: logoPhara      },
+  { nombre: 'moontezco',               src: logoMontezco   },
+  { nombre: 'USAC',                    src: logoUsac       },
+  { nombre: 'Neo',                     src: logoNeo        },
 ];
+
 
 // ─── COLORES ─────────────────────────────────────────────────────────────────
 const COLORS = {
@@ -257,12 +251,34 @@ const ZonaSpotlightLayer = ({ zonaFeature }) => {
   );
 };
 
-const ZonaZoomLayer = ({ zonaFeature }) => {
+const ZonaZoomLayer = ({ zonaFeature, isDeviceSelected }) => {
   const map = useMap();
+  const prevDeviceSelected = useRef(false);
+
   useEffect(() => {
     if (!zonaFeature) return;
-    map.flyTo(getFeatureBounds(zonaFeature).getCenter(), 15.9, { animate: true, duration: 1.0 });
-  }, [map, zonaFeature]);
+    
+    // Zoom inicial al entrar a la zona
+    if (!isDeviceSelected && !prevDeviceSelected.current) {
+      map.flyTo(getFeatureBounds(zonaFeature).getCenter(), 15.9, { animate: true, duration: 1.0 });
+    }
+    
+    // Zoom de regreso al salir de un dispositivo hacia la zona
+    if (!isDeviceSelected && prevDeviceSelected.current) {
+      map.flyTo(getFeatureBounds(zonaFeature).getCenter(), 15.9, { animate: true, duration: 1.0 });
+    }
+
+    prevDeviceSelected.current = isDeviceSelected;
+  }, [map, zonaFeature, isDeviceSelected]);
+  return null;
+};
+
+const DeviceZoomLayer = ({ device }) => {
+  const map = useMap();
+  useEffect(() => {
+    if (!device || !device.lat || !device.lng) return;
+    map.flyTo([device.lat, device.lng], 18, { animate: true, duration: 1.0 });
+  }, [map, device]);
   return null;
 };
 
@@ -1017,104 +1033,191 @@ const ZonaPanel = ({ zonaFeature, zonaAqiResult, loadingZona, onClose, onSelectD
 };
 
 // ─── PANEL DE DISPOSITIVO ─────────────────────────────────────────────────────
-const DevicePanel = ({ selectedDevice, onClose, onBack, isMobile, currentAqiColor, temp, hum, co2, co }) => {
+const DevicePanel = ({ selectedDevice, onBack, isMobile, currentAqiColor, temp, hum, co2, co }) => {
   if (!selectedDevice) return null;
 
+  const category = selectedDevice.status === 'online' ? (selectedDevice.aqi_category || 'Calculando') : 'Sin datos';
+  const aqiValue = (selectedDevice.status === 'online' && selectedDevice.aqi_value !== null) ? Math.round(selectedDevice.aqi_value) : null;
+  const recomend = RECOMENDACIONES[category];
+
   const panelStyle = isMobile
-    ? { position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 2002, backgroundColor: COLORS.bgLight, borderRadius: '24px 24px 0 0', padding: '0 0 env(safe-area-inset-bottom)', boxShadow: '0 -12px 32px rgba(0,0,0,0.1)', maxHeight: '85vh', overflowY: 'auto', scrollbarWidth: 'none', animation: 'fadeIn .2s ease' }
-    : { position: 'fixed', top: '24px', right: '24px', zIndex: 2002, width: '400px', maxHeight: 'calc(100vh - 48px)', overflowY: 'auto', scrollbarWidth: 'none', backgroundColor: COLORS.bgLight, borderRadius: '24px', padding: '24px', boxShadow: '0 12px 40px rgba(0,0,0,0.12)', border: `1px solid ${COLORS.border}`, animation: 'fadeIn .2s ease' };
+    ? {
+        position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 2002,
+        backgroundColor: COLORS.bgLight, borderRadius: '24px 24px 0 0',
+        boxShadow: '0 -12px 32px rgba(0,0,0,0.1)', maxHeight: '90vh', overflowY: 'auto',
+        animation: 'fadeIn .3s ease', scrollbarWidth: 'none',
+      }
+    : {
+        position: 'fixed', top: '8%', right: '24px', zIndex: 2002,
+        width: '30%', maxHeight: '85%', overflowY: 'auto',
+        backgroundColor: COLORS.bgLight, borderRadius: '24px',
+        boxShadow: '0 12px 40px rgba(0,0,0,0.12)', border: `1px solid ${COLORS.border}`,
+        animation: 'fadeIn .3s ease',
+        scrollbarWidth: 'none',
+      };
+
+  const StatRow = ({ icon: Icon, label, value, unit, color }) => (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <Icon size={15} color={color} />
+        <span style={{ fontSize: '0.75rem', fontWeight: '700', color: COLORS.textMuted, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{label}</span>
+      </div>
+      <div style={{ fontSize: '1.2rem', fontWeight: '800', color: COLORS.text, display: 'flex', alignItems: 'baseline', gap: '4px' }}>
+        {value !== null && value !== undefined ? value : '—'}
+        {value !== null && value !== undefined && (
+          <span style={{ fontSize: '0.8rem', fontWeight: '700', color: color }}>{unit}</span>
+        )}
+      </div>
+    </div>
+  );
 
   return (
     <div style={panelStyle}>
       {isMobile && (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '10px 0 0' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '10px 0 0', backgroundColor: COLORS.bgLight }}>
           <div style={{ width: '40px', height: '5px', borderRadius: '99px', backgroundColor: COLORS.border }} />
         </div>
       )}
-      <div style={{ padding: isMobile ? '16px 20px 28px' : '0' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-          {onBack && (
-            <button onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'none', border: 'none', cursor: 'pointer', color: COLORS.primary, fontSize: '0.85rem', fontWeight: '700', padding: '2px 0' }}>
-              <ArrowLeft size={16} /> Volver a la zona
-            </button>
-          )}
-          <button onClick={onClose} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: COLORS.textMuted, cursor: 'pointer', padding: '4px' }}>
+
+      {/* CABECERA */}
+      <div style={{ padding: '20px 24px 16px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+        <div>
+          <p style={{ margin: 0, fontSize: '0.7rem', fontWeight: '800', color: COLORS.textMuted, textTransform: 'uppercase', letterSpacing: '1px' }}>
+            Estación de Monitoreo
+          </p>
+          <h3 style={{ margin: '4px 0 2px', fontSize: '1.4rem', fontWeight: '900', color: COLORS.text }}>{selectedDevice.name}</h3>
+          <p style={{ margin: 0, fontSize: '0.85rem', color: COLORS.textMuted, fontWeight: '500' }}>
+            {selectedDevice.status === 'online' ? '🟢 Conectada ahora' : '🔴 Inactiva'}
+          </p>
+        </div>
+        {onBack && (
+          <button onClick={onBack} title="Volver a la zona" style={{ background: 'none', border: 'none', cursor: 'pointer', color: COLORS.textMuted }}>
             <X size={22} />
           </button>
+        )}
+      </div>
+
+      <div style={{ padding: '0 20px 20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+
+        {/* MAPA MINIATURA + FOTO INSTALACIÓN */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', height: '140px' }}>
+          {/* Mapa */}
+          <div style={{ borderRadius: '16px', overflow: 'hidden', border: `1px solid ${COLORS.border}`, position: 'relative' }}>
+            <MapContainer
+              key={selectedDevice.id}
+              center={[selectedDevice.lat, selectedDevice.lng]}
+              zoom={16}
+              style={{ width: '100%', height: '100%' }}
+              zoomControl={false} dragging={false} scrollWheelZoom={false} doubleClickZoom={false} touchZoom={false} keyboard={false} attributionControl={false}
+            >
+              <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+              <Marker position={[selectedDevice.lat, selectedDevice.lng]} icon={createAqiIcon(selectedDevice.aqi_category, selectedDevice.status)} />
+            </MapContainer>
+            <div style={{ position: 'absolute', bottom: '6px', left: '50%', transform: 'translateX(-50%)', backgroundColor: 'rgba(255,255,255,0.95)', borderRadius: '20px', padding: '2px 10px', zIndex: 1000, fontSize: '0.65rem', fontWeight: '700', color: COLORS.text, boxShadow: '0 4px 12px rgba(0,0,0,0.1)', whiteSpace: 'nowrap' }}>
+              📍 Ubicación
+            </div>
+          </div>
+
+          {/* Foto (Placeholder) */}
+          <div style={{ 
+            borderRadius: '16px', overflow: 'hidden', border: `1px solid ${COLORS.border}`, 
+            position: 'relative', backgroundColor: '#E2E8F0',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            backgroundImage: `linear-gradient(45deg, ${COLORS.bgLight} 25%, transparent 25%, transparent 50%, ${COLORS.bgLight} 50%, ${COLORS.bgLight} 75%, transparent 75%, transparent)`,
+            backgroundSize: '20px 20px'
+          }}>
+            <div style={{ 
+              width: '40px', height: '40px', borderRadius: '50%', backgroundColor: 'white', 
+              display: 'flex', alignItems: 'center', justifyContent: 'center', color: COLORS.textMuted,
+              boxShadow: '0 4px 12px rgba(0,0,0,0.05)', marginBottom: '4px'
+            }}>
+              <MapPin size={20} />
+            </div>
+            <span style={{ fontSize: '0.65rem', fontWeight: '800', color: COLORS.textMuted, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Instalación</span>
+            
+            {/* Overlay sutil para cuando haya foto real */}
+            <div style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.02)' }} />
+          </div>
         </div>
 
-        <h3 style={{ margin: '0 0 4px', color: COLORS.text, fontSize: '1.3rem', fontWeight: '900' }}>
-          {selectedDevice.name} {selectedDevice.status !== 'online' && '(Inactiva)'}
-        </h3>
-        <p style={{ margin: '0 0 20px', color: COLORS.textMuted, fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '500' }}>
-          <MapPin size={14} /> {selectedDevice.description || 'Estación de monitoreo ambiental'}
-        </p>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', opacity: selectedDevice.status === 'online' ? 1 : 0.6 }}>
+        {/* TARJETA CALIDAD DEL AIRE + DATOS */}
+        <div style={{ backgroundColor: COLORS.white, borderRadius: '20px', border: `1px solid ${COLORS.border}`, padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px', boxShadow: COLORS.shadowLight }}>
           
-          {/* AQI Círculo Grande */}
-          <div style={{ backgroundColor: COLORS.white, borderRadius: '20px', padding: '24px', border: `1px solid ${COLORS.border}`, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', boxShadow: COLORS.shadowLight }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ fontSize: '0.75rem', fontWeight: '800', color: COLORS.textMuted, textTransform: 'uppercase' }}>Calidad del Aire</span>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.3fr', gap: '20px', alignItems: 'center' }}>
+            {/* Medidor AQI */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span style={{ fontSize: '0.7rem', fontWeight: '800', color: COLORS.textMuted, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Calidad del Aire</span>
+                <Info size={12} color={COLORS.primary} />
+              </div>
+              
+              {/* Barra escala horizontal */}
+              <div style={{ width: '100%', position: 'relative' }}>
+                <div style={{ display: 'flex', width: '100%', height: '6px', borderRadius: '99px', overflow: 'hidden' }}>
+                  <div style={{ flex: 1, backgroundColor: '#10B981' }} /><div style={{ flex: 1, backgroundColor: '#34D399' }} />
+                  <div style={{ flex: 1, backgroundColor: '#F59E0B' }} /><div style={{ flex: 1, backgroundColor: '#F97316' }} />
+                  <div style={{ flex: 1, backgroundColor: '#EF4444' }} />
+                </div>
+                {aqiValue !== null && (
+                  <div style={{ position: 'absolute', top: '-2px', left: `calc(${Math.min(100, Math.max(0, aqiValue))}% - 5px)`, width: '10px', height: '10px', backgroundColor: 'white', border: '2px solid #9CA3AF', borderRadius: '50%', boxShadow: '0 1px 3px rgba(0,0,0,0.3)' }} />
+                )}
+              </div>
+
+              {/* Burbuja grande */}
+              <div style={{
+                width: '100px', height: '100px', borderRadius: '50%', backgroundColor: currentAqiColor,
+                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                color: 'white', boxShadow: `0 12px 28px ${currentAqiColor}60`, transition: 'all .4s'
+              }}>
+                <Leaf size={20} style={{ marginBottom: '2px' }} />
+                <span style={{ fontSize: '2.2rem', fontWeight: '900', lineHeight: 1 }}>
+                  {aqiValue !== null ? aqiValue : '--'}
+                </span>
+                <span style={{ fontSize: '0.75rem', fontWeight: '700', marginTop: '2px' }}>
+                  {category}
+                </span>
+              </div>
             </div>
-            
-            <div style={{ width: '120px', height: '120px', borderRadius: '50%', backgroundColor: currentAqiColor, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'white', boxShadow: `0 12px 28px ${currentAqiColor}60` }}>
-              <Leaf size={22} style={{ marginBottom: '2px' }} />
-              <span style={{ fontSize: '2.4rem', fontWeight: '900', lineHeight: 1 }}>
-                {selectedDevice.status === 'online' && selectedDevice.aqi_value !== null ? Math.round(selectedDevice.aqi_value) : '--'}
-              </span>
-              <span style={{ fontSize: '0.75rem', fontWeight: '700', marginTop: '2px' }}>
-                {selectedDevice.status === 'online' ? (selectedDevice.aqi_category || 'Calculando') : 'Sin datos'}
-              </span>
+
+            {/* Stats Clima/Gases */}
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <StatRow icon={Thermometer} label="Temp." value={temp != null ? Number(temp).toFixed(1) : null} unit="°C" color="#EF4444" />
+              <div style={{ height: '1px', backgroundColor: COLORS.border, margin: '2px 0' }} />
+              <StatRow icon={Droplets} label="Hum." value={hum != null ? Number(hum).toFixed(1) : null} unit="%" color="#3B82F6" />
+              <div style={{ height: '1px', backgroundColor: COLORS.border, margin: '2px 0' }} />
+              <StatRow icon={Cloud} label="CO₂" value={co2 != null ? Number(co2).toFixed(0) : null} unit="ppm" color="#8B5CF6" />
+              <div style={{ height: '1px', backgroundColor: COLORS.border, margin: '2px 0' }} />
+              <StatRow icon={Wind} label="CO" value={co != null ? Number(co).toFixed(1) : null} unit="ppm" color="#F97316" />
             </div>
           </div>
+        </div>
 
-          {/* Grid Variables */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-            <div style={{ backgroundColor: COLORS.white, padding: '16px', borderRadius: '16px', border: `1px solid ${COLORS.border}`, boxShadow: COLORS.shadowLight }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
-                <Thermometer size={16} color={selectedDevice.status === 'online' ? '#EF4444' : '#9CA3AF'} />
-                <span style={{ fontSize: '0.7rem', fontWeight: '800', color: COLORS.textMuted, textTransform: 'uppercase' }}>Temp.</span>
-              </div>
-              <div style={{ fontSize: '1.4rem', fontWeight: '900', color: COLORS.text }}>
-                {selectedDevice.status === 'online' && temp != null ? Number(temp).toFixed(1) : '--'}
-                <span style={{ fontSize: '0.9rem', fontWeight: '700', color: selectedDevice.status === 'online' ? '#EF4444' : '#9CA3AF', marginLeft: '4px' }}>°C</span>
+        {/* TARJETA RECOMENDACIONES CON SOL MASCOTA */}
+        <div style={{ backgroundColor: COLORS.white, borderRadius: '20px', border: `1px solid ${COLORS.border}`, padding: '20px', boxShadow: COLORS.shadowLight }}>
+          <p style={{ margin: '0 0 14px', fontSize: '0.75rem', fontWeight: '800', color: COLORS.textMuted, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            Recomendaciones
+          </p>
+          {!recomend ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+              <div style={{ width: 70, height: 70, borderRadius: '50%', backgroundColor: COLORS.bgLight, flexShrink: 0 }}/>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ height: '12px', backgroundColor: COLORS.bgLight, borderRadius: '6px' }}/>
+                <div style={{ height: '12px', backgroundColor: COLORS.bgLight, borderRadius: '6px', width: '75%' }}/>
               </div>
             </div>
-
-            <div style={{ backgroundColor: COLORS.white, padding: '16px', borderRadius: '16px', border: `1px solid ${COLORS.border}`, boxShadow: COLORS.shadowLight }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
-                <Droplets size={16} color={selectedDevice.status === 'online' ? '#3B82F6' : '#9CA3AF'} />
-                <span style={{ fontSize: '0.7rem', fontWeight: '800', color: COLORS.textMuted, textTransform: 'uppercase' }}>Hum.</span>
-              </div>
-              <div style={{ fontSize: '1.4rem', fontWeight: '900', color: COLORS.text }}>
-                {selectedDevice.status === 'online' && hum != null ? Number(hum).toFixed(1) : '--'}
-                <span style={{ fontSize: '0.9rem', fontWeight: '700', color: selectedDevice.status === 'online' ? '#3B82F6' : '#9CA3AF', marginLeft: '4px' }}>%</span>
-              </div>
-            </div>
-
-            <div style={{ backgroundColor: COLORS.white, padding: '16px', borderRadius: '16px', border: `1px solid ${COLORS.border}`, boxShadow: COLORS.shadowLight }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
-                <Cloud size={16} color={selectedDevice.status === 'online' ? '#8B5CF6' : '#9CA3AF'} />
-                <span style={{ fontSize: '0.7rem', fontWeight: '800', color: COLORS.textMuted, textTransform: 'uppercase' }}>CO₂</span>
-              </div>
-              <div style={{ fontSize: '1.4rem', fontWeight: '900', color: COLORS.text }}>
-                {selectedDevice.status === 'online' && co2 != null ? Number(co2).toFixed(0) : '--'}
-                <span style={{ fontSize: '0.8rem', fontWeight: '700', color: selectedDevice.status === 'online' ? '#8B5CF6' : '#9CA3AF', marginLeft: '4px' }}>ppm</span>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <SolMascota category={category} size={80} />
+              <div style={{ flex: 1 }}>
+                <p style={{ margin: '0 0 6px', fontSize: '0.78rem', fontWeight: '800', color: getAqiColor(category), textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Aire {category}
+                </p>
+                <p style={{ margin: 0, fontSize: '0.83rem', color: COLORS.text, lineHeight: 1.55, fontWeight: '500' }}>
+                  {recomend.texto}
+                </p>
               </div>
             </div>
-
-            <div style={{ backgroundColor: COLORS.white, padding: '16px', borderRadius: '16px', border: `1px solid ${COLORS.border}`, boxShadow: COLORS.shadowLight }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
-                <Wind size={16} color={selectedDevice.status === 'online' ? '#F97316' : '#9CA3AF'} />
-                <span style={{ fontSize: '0.7rem', fontWeight: '800', color: COLORS.textMuted, textTransform: 'uppercase' }}>CO</span>
-              </div>
-              <div style={{ fontSize: '1.4rem', fontWeight: '900', color: COLORS.text }}>
-                {selectedDevice.status === 'online' && co != null ? Number(co).toFixed(1) : '--'}
-                <span style={{ fontSize: '0.8rem', fontWeight: '700', color: selectedDevice.status === 'online' ? '#F97316' : '#9CA3AF', marginLeft: '4px' }}>ppm</span>
-              </div>
-            </div>
-          </div>
+          )}
         </div>
 
       </div>
@@ -1256,7 +1359,8 @@ export default function PublicMap() {
             <AllZonesFitLayer />
             <MapRefSetter />
             <XelaZonasLayer zonaHover={zonaHover} onZonaHover={setZonaHover} onZonaClick={handleZonaClick} selectedZona={selectedZonaFeature?.properties?.zona} />
-            <ZonaZoomLayer zonaFeature={selectedZonaFeature} />
+            <ZonaZoomLayer zonaFeature={selectedZonaFeature} isDeviceSelected={!!selectedDevice} />
+            <DeviceZoomLayer device={selectedDevice} />
             <ZonaSpotlightLayer zonaFeature={selectedZonaFeature} />
             <ResetZoomLayer trigger={resetTrigger} />
             {searchMarker && <SearchMarkerLayer marker={searchMarker} onClose={() => setSearchMarker(null)} />}
@@ -1395,13 +1499,13 @@ export default function PublicMap() {
         )}
 
         {selectedDevice && (
-          <DevicePanel selectedDevice={selectedDevice} onClose={handleCloseDevice} onBack={selectedZonaFeature ? () => setSelectedDevice(null) : null} isMobile={isMobile} currentAqiColor={currentAqiColor} temp={temp} hum={hum} co2={co2} co={co} />
+          <DevicePanel selectedDevice={selectedDevice} onBack={selectedZonaFeature ? () => setSelectedDevice(null) : null} isMobile={isMobile} currentAqiColor={currentAqiColor} temp={temp} hum={hum} co2={co2} co={co} />
         )}
       </div>
 
       <div style={{ backgroundColor: COLORS.white, borderTop: `1px solid ${COLORS.border}`, padding: isMobile ? '12px 16px' : '14px 6vw', display: 'flex', alignItems: 'center', gap: isMobile ? '12px' : '24px', flexShrink: 0, zIndex: 999, overflowX: isMobile ? 'auto' : 'visible', scrollbarWidth: 'none' }}>
         <span style={{ fontSize: '0.6rem', fontWeight: '700', color: COLORS.textMuted, textTransform: 'uppercase', letterSpacing: '0.8px', whiteSpace: 'nowrap', paddingRight: isMobile ? '12px' : '20px', borderRight: `1px solid ${COLORS.border}`, flexShrink: 0 }}>
-          {isMobile ? 'Apoyo' : 'Con el apoyo de'}
+          {isMobile ? 'Apoyo' : 'Esta red de nodos de monitoreo es una realidad gracias al compromiso ambiental de'}
         </span>
         <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '16px' : '24px', flexWrap: isMobile ? 'nowrap' : 'wrap', overflowX: isMobile ? 'auto' : 'visible', scrollbarWidth: 'none' }}>
           {PATROCINADORES.map(({ nombre, src }) => (

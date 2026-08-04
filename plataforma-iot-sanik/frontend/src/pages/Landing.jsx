@@ -2,8 +2,10 @@ import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 
 // 1. IMPORTAMOS TU IMAGEN DESDE LA CARPETA ASSETS
-// (Asegúrate de cambiar "logo.png" por el nombre exacto de tu archivo en esa carpeta, por ejemplo "AirSunBoxLogo.png")
 import logoImg from "../assets/logo2.svg";
+
+// 3. NUEVO: IMPORTAMOS EL QR DE TU BOT
+import qrBotImg from "../assets/qrTelegram.png";
 
 const COLORS = {
   primary: "#67B7E8",
@@ -14,6 +16,9 @@ const COLORS = {
   textMuted: "#5A7080",
   border: "#D6E8F5",
   white: "#ffffff",
+  // Nuevos colores para la simulación de chat
+  tgUserBubble: "#7B61FF", // Morado de usuario
+  tgChecks: "#67B7E8",    // Checks azules
 };
 
 // 2. REEMPLAZAMOS EL SVG DE ABAJO POR UN COMPONENTE QUE USA TU IMAGEN REAL
@@ -66,6 +71,7 @@ const Reveal = ({ children, delay = 0, style = {} }) => {
     </div>
   );
 };
+
 const FEATURES = [
   {
     icon: (
@@ -129,70 +135,42 @@ const FEATURES = [
     desc: "Autenticación JWT, datos cifrados y 2 años de historial respaldado.",
   },
 ];
+
 const PLANS = [
   {
-    name: "Gratuito",
-    price: "Q0",
-    period: "/mes",
-    desc: "Para explorar la plataforma",
+    name: "Suscripción Patrocinador RSE",
+    price: "Q6,000",
+    period: "/año",
+    desc: "Para empresas que quieren visibilidad e impacto ambiental real",
     features: [
-      "1 estación",
-      "Datos en tiempo real",
-      "Historial 7 días",
-      "Alertas básicas",
+      "Logotipo en plataforma web y mapa interactivo",
+      "Mención en alertas del Canal de WhatsApp",
+      "Sello Verde físico con código QR para tu empresa",
+      "Acceso a plataforma privada de datos ambientales",
+      "20% destinado al Fondo de Acción Climática AirSunBox",
+      "Reforestación urbana y mitigación de islas de calor en Xela",
     ],
-    cta: "Empezar gratis",
-    popular: false,
-  },
-  {
-    name: "Pro",
-    price: "Q299",
-    period: "/mes",
-    desc: "Para equipos en crecimiento",
-    features: [
-      "10 estaciones",
-      "Datos en tiempo real",
-      "Historial 30 días",
-      "Alertas avanzadas",
-      "Exportación de datos",
-      "Soporte prioritario",
-    ],
-    cta: "Contactar ventas",
+    cta: "Unirse al consorcio",
     popular: true,
-  },
-  {
-    name: "Empresarial",
-    price: "A medida",
-    period: "",
-    desc: "Para grandes organizaciones",
-    features: [
-      "Estaciones ilimitadas",
-      "Historial ilimitado",
-      "API dedicada",
-      "Reportes personalizados",
-      "Soporte 24/7",
-    ],
-    cta: "Hablar con nosotros",
-    popular: false,
-  },
+  }
 ];
 
 const STEPS = [
   {
     n: "01",
-    title: "Recibís la estación",
-    desc: "Te enviamos la estación ESP32 lista para conectar. Solo necesitás tu red WiFi.",
+    title: "Sume su marca",
+    desc: "Se une al co-patrocinio.\nSu empresa se une al consorcio de marcas líderes que hacen posible la red de monitoreo en Quetzaltenango.\nNosotros nos encargamos de la fabricación, instalación y soporte técnico; su organización solo se suma al impacto."
   },
   {
     n: "02",
-    title: "Activamos tu cuenta",
-    desc: "Configuramos tus dispositivos y te entregamos tus credenciales de acceso al panel.",
+    title: "Desplegamos su RSE",
+    desc: "Activamos su presencia.\nIntegramos el logotipo e identidad de su organización en nuestra plataforma web, en el mapa interactivo y en las alertas del Canal de WhatsApp.\nAdemás, le entregamos el Sello Verde físico con código QR para sus mostradores y agencias."
   },
   {
     n: "03",
-    title: "Monitoreás al instante",
-    desc: "Desde cualquier dispositivo ves tus datos, historial y alertas en tiempo real.",
-  },
+    title: "Financie la solución",
+    desc: "Impulsa el Fondo Ambiental.\nEl 20% de su suscripción anual se destina directamente al Fondo de Acción Climática AirSunBox.\nSu marca financia activamente las jornadas de reforestación urbana y los sistemas de mitigación de calor en las calles de Xela."
+  }
 ];
 
 const SENSORS = [
@@ -400,6 +378,56 @@ export default function Landing() {
           padding: 4px;
         }
 
+        /* ESTILOS DE CHAT DE TELEGRAM */
+        .chat-bubble {
+          border-radius: 12px;
+          padding: 10px 14px;
+          max-width: 85%;
+          position: relative;
+          opacity: 0;
+          transform: translateY(10px);
+          font-size: 0.8rem;
+          color: rgba(255,255,255,0.9);
+        }
+        .chat-bubble::after {
+          content: ""; position: absolute; top: 12px; width: 0; height: 0;
+        }
+        .chat-bot {
+          background: rgba(255,255,255,0.06);
+          border: 1px solid rgba(255,255,255,0.1);
+          align-self: flex-start;
+          border-bottom-left-radius: 4px;
+        }
+        .chat-bot::after {
+          left: -8px; border-top: 8px solid rgba(255,255,255,0.06); border-left: 8px solid transparent;
+        }
+        .chat-user {
+          background: ${COLORS.tgUserBubble};
+          align-self: flex-end;
+          border-bottom-right-radius: 4px;
+        }
+        .chat-user::after {
+          right: -8px; border-top: 8px solid ${COLORS.tgUserBubble}; border-right: 8px solid transparent;
+        }
+        .checks-user {
+          display: inline-block; width: 12px; height: 10px; margin-left: 4px; color: ${COLORS.tgChecks};
+        }
+        .check-bot {
+          display: inline-block; width: 6px; height: 10px; margin-right: 4px; color: rgba(255,255,255,0.4);
+        }
+        @keyframes chat-in {
+          to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ESTILOS DE BOTONES DE CHAT */
+        .zone-btn-grid {
+          display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 10px;
+        }
+        .zone-btn {
+          background: rgba(255,255,255,0.85); color: rgba(0,0,0,0.8); padding: 7px; text-align: center; border-radius: 8px; font-size: 0.65rem; font-weight: 600; cursor: pointer; transition: background 0.2s;
+        }
+        .zone-btn:hover { background: rgba(255,255,255,1); }
+
         @media(max-width:680px){
           .nav-desktop {
             display: ${menuOpen ? 'flex' : 'none'} !important;
@@ -444,7 +472,6 @@ export default function Landing() {
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          {/* El logo de la barra de navegación ahora usa la imagen */}
           <AirSunBoxLogo size={150} />
         </div>
 
@@ -460,6 +487,17 @@ export default function Landing() {
             gap: 32,
           }}
         >
+          {/* NUEVO: ENLACE DIRECTO AL MAPA EN NETLIFY */}
+          <a 
+            href="https://voluble-creponne-e6c74f.netlify.app/mapa" 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            className="nav-link" 
+            style={{ fontWeight: "700", color: COLORS.accent }}
+            onClick={() => setMenuOpen(false)}
+          >
+            🗺️ Mapa en Vivo
+          </a>
           <a href="#como-funciona" className="nav-link" onClick={() => setMenuOpen(false)}>
             Cómo funciona
           </a>
@@ -511,7 +549,6 @@ export default function Landing() {
             marginBottom: 32,
           }}
         >
-          {/* El logo principal gigante también usa la imagen física limpia */}
           <div className="logo-float" style={{ marginBottom: 24, display: "flex", justifyContent: "center" }}>
             <AirSunBoxLogo size={320} />
           </div>
@@ -567,11 +604,16 @@ export default function Landing() {
           <a href="#precios" className="btn-primary">
             Ver planes →
           </a>
-          <a href="#como-funciona" className="btn-outline">
-            Cómo funciona
+          <a 
+            href="https://voluble-creponne-e6c74f.netlify.app/mapa" 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            className="btn-outline"
+          >
+            Explorar Mapa Abierto
           </a>
         </div>
-
+        
         <div
           style={{
             marginTop: 64,
@@ -599,6 +641,156 @@ export default function Landing() {
       </section>
 
       <hr className="divider" />
+
+      {/* ── SECCIÓN DE BOT DE TELEGRAM (CORREGIDA) ───────────────────────────────────── */}
+      <section style={{ padding: "88px 6vw", background: COLORS.bgLight }}>
+        <Reveal>
+          <div style={{
+            position: "relative", overflow: "hidden",
+            borderRadius: "24px",
+            background: `linear-gradient(135deg, ${COLORS.bgDark} 0%, #0D1829 60%, #0A2A2A 100%)`,
+            border: "1px solid rgba(103,183,232,.15)",
+            padding: "56px 48px",
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            gap: "40px", flexWrap: "wrap",
+            boxShadow: "0 20px 60px rgba(0,0,0,.2)",
+          }}>
+            {/* Auras decorativas de fondo */}
+            <div style={{ position: "absolute", top: "-60px", right: "10%", width: "280px", height: "280px", borderRadius: "50%", background: "radial-gradient(circle, rgba(103,183,232,.12) 0%, transparent 70%)", pointerEvents: "none" }} />
+            <div style={{ position: "absolute", bottom: "-80px", right: "30%", width: "200px", height: "200px", borderRadius: "50%", background: "radial-gradient(circle, rgba(43,168,160,.1) 0%, transparent 70%)", pointerEvents: "none" }} />
+
+            {/* Texto izquierdo */}
+            <div style={{ flex: 1, minWidth: "240px", position: "relative", zIndex: 1 }}>
+              <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", background: "rgba(43,168,160,.15)", border: "1px solid rgba(43,168,160,.3)", borderRadius: "99px", padding: "5px 14px", marginBottom: "20px" }}>
+                <span className="live-dot" style={{ width: "7px", height: "7px", animation: "pulse-ring 1.6s ease-out infinite" }}/>
+                <span style={{ fontSize: ".75rem", fontWeight: "700", color: "#2BA8A0", letterSpacing: ".06em", textTransform: "uppercase" }}>Asistente en Telegram</span>
+              </div>
+              <h2 style={{ fontFamily: "'Syne', sans-serif", fontSize: "clamp(1.6rem,3vw,2.4rem)", fontWeight: "800", color: "#ffffff", lineHeight: 1.1, letterSpacing: "-.02em", marginBottom: "14px" }}>
+                Habla con nuestro Bot<br />
+                <span style={{ color: COLORS.primary }}>en Telegram</span>
+              </h2>
+              <p style={{ fontSize: ".95rem", color: "rgba(255,255,255,.55)", lineHeight: 1.65, maxWidth: "380px", marginBottom: "28px" }}>
+                Saluda, dinos tu zona (¡o solo pregúntanos!) y obtén los datos al instante, ¡o explora el mapa!
+              </p>
+              
+              {/* ENLACE REAL AL BOT DE TELEGRAM */}
+              <a 
+                href="https://t.me/AIRSUBBOX_BOT" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                style={{ 
+                  display: "inline-flex", 
+                  alignItems: "center", 
+                  gap: "10px", 
+                  background: COLORS.accent, 
+                  color: "#fff", 
+                  padding: "13px 26px", 
+                  borderRadius: "12px", 
+                  fontWeight: "700", 
+                  fontSize: ".9rem", 
+                  boxShadow: `0 4px 20px rgba(43,168,160,.4)`,
+                  textDecoration: "none",
+                  transition: "background 0.2s"
+                }}
+                onMouseEnter={(e) => e.target.style.background = "#228B84"}
+                onMouseLeave={(e) => e.target.style.background = COLORS.accent}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
+                Usar Bot ahora
+              </a>
+            </div>
+
+            {/* QR de Bot (Centro) */}
+            <a 
+              href="https://t.me/AIRSUBBOX_BOT" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              style={{ position: "relative", zIndex: 1, flexShrink: 0, padding: "16px", borderRadius: "20px", background: "#fff", border: `1.5px solid ${COLORS.border}`, boxShadow: `0 8px 32px rgba(103,183,232,0.1)`, display: "block" }}
+            >
+              <img src={qrBotImg} alt="QR Bot" style={{ width: "160px", height: "160px" }}/>
+              <div style={{ color: COLORS.primary, fontSize: "0.82rem", fontWeight: "700", textTransform: "uppercase", textAlign: "center", marginTop: "12px" }}>@AIRSUBBOX_BOT</div>
+            </a>
+
+            {/* Simulación de Chat de Bot (Derecha - Animado) */}
+            <div style={{ position: "relative", zIndex: 1, flex: "1 1 240px", minWidth: "240px", display: "flex", flexDirection: "column", gap: "10px", opacity: 0.9 }}>
+              
+              {/* Mensaje 1 (Bot) */}
+              <div className="chat-bubble chat-bot" style={{ animation: "chat-in .5s ease 0.1s both", display: "flex", flexDirection: "column" }}>
+                <div style={{ fontSize: ".58rem", color: "rgba(255,255,255,.4)", marginBottom: "4px" }}>AirSunBox · 09:31</div>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <div><span style={{ fontSize: "1.1rem" }}>👋</span> ¡Bienvenido a Xela Aire! <br /> Consulta tu zona:</div>
+                </div>
+                {/* Botones simulados de zona */}
+                <div className="zone-btn-grid">
+                  {["Zona 1", "Zona 2", "Zona 3", "Zona 4", "Zona 5"].map(z => (
+                    <div key={z} className="zone-btn">{z}</div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Mensaje 2 (Usuario) */}
+              <div className="chat-bubble chat-user" style={{ animation: "chat-in .5s ease .7s both", display: "flex", flexDirection: "column" }}>
+                <div style={{ fontSize: ".58rem", color: "rgba(255,255,255,.6)", marginBottom: "4px" }}>Tú · 09:32</div>
+                <div>Mi zona es zona 3. <span className="checks-user">✓✓</span></div>
+              </div>
+
+              {/* Mensaje 3 (Bot - Datos) */}
+              <div className="chat-bubble chat-bot" style={{ animation: "chat-in .5s ease 1.3s both", display: "flex", flexDirection: "column" }}>
+                <div style={{ fontSize: ".58rem", color: "rgba(255,255,255,.4)", marginBottom: "4px" }}>AirSunBox · 09:32</div>
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  <div style={{ width: "36px", height: "36px", borderRadius: "50%", background: "rgba(52,211,153,.15)", border: "2px solid #34D399", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column" }}>
+                    <span style={{ fontSize: "1rem", fontWeight: "900", color: "#34D399", lineHeight: 1 }}>25</span>
+                    <span style={{ fontSize: ".42rem", fontWeight: "700", color: "#34D399" }}>AQI</span>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                      <span style={{ color: "#34D399", fontWeight: "800" }}>Buena</span>
+                      <span style={{ width: "6px", height: "10px", color: "rgba(255,255,255,0.4)" }}>✓</span>
+                    </div>
+                    <div style={{ fontSize: ".65rem", color: "rgba(255,255,255,.4)", marginTop: "1px" }}>Zona 3 · Ahora</div>
+                  </div>
+                </div>
+                {/* Detalles de datos */}
+                <div style={{ marginTop: "12px", borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: "8px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px" }}>
+                  {[["🌡️ 27.9°C", "Temp"], ["💧 43.8%", "Hum"], ["🫁 522.1 ppm", "CO2"], ["🌫️ 2.4 ppm", "CO"]].map(([val, label]) => (
+                    <div key={label} style={{ fontSize: ".68rem" }}>{val} <span style={{ color: "rgba(255,255,255,0.4)" }}>| {label}</span></div>
+                  ))}
+                </div>
+                {/* Estaciones activas */}
+                <div style={{ display: "inline-flex", alignItems: "center", gap: "6px", background: "rgba(52,211,153,.15)", border: "1px solid rgba(52,211,153,0.3)", borderRadius: "6px", padding: "3px 8px", marginTop: "12px", fontSize: "0.62rem" }}>
+                  <span style={{ width: "5px", height: "5px", borderRadius: "50%", background: "#34D399" }}/>
+                  <span style={{ color: "#34D399" }}>Estación Las Américas 3 — AQI 25</span>
+                </div>
+
+                {/* NUEVO: BOTÓN CLIQUEABLE REAL DENTRO DEL CHAT SIMULADO HACIA EL MAPA */}
+                <a 
+                  href="https://voluble-creponne-e6c74f.netlify.app/mapa" 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  style={{ 
+                    display: "block", 
+                    background: COLORS.primary, 
+                    color: "#fff", 
+                    textAlign: "center", 
+                    padding: "8px 12px", 
+                    borderRadius: "8px", 
+                    fontSize: "0.75rem", 
+                    fontWeight: "700", 
+                    marginTop: "12px", 
+                    boxShadow: "0 4px 12px rgba(103,183,232,0.3)",
+                    textDecoration: "none"
+                  }}
+                >
+                  🗺️ Ver Mapa Público Abierto
+                </a>
+              </div>
+
+            </div>
+          </div>
+        </Reveal>
+      </section>
+
+      <hr className="divider" style={{ marginTop: "48px" }} />
 
       {/* STATS */}
       <section style={{ padding: "56px 6vw" }}>
@@ -783,7 +975,7 @@ export default function Landing() {
                     color: COLORS.text,
                   }}
                 >
-                  AirSunBox Station v2
+                  AirSunBox Station v1
                 </h3>
                 <p
                   style={{
@@ -972,11 +1164,10 @@ export default function Landing() {
       <section id="precios" style={{ padding: "88px 6vw" }}>
         <div style={{ maxWidth: 960, margin: "0 auto" }}>
           <Reveal>
-            <p className="section-label">Planes</p>
-            <h2 className="section-title">Precios en quetzales</h2>
+            <p className="section-label">Apoyo</p>
+            <h2 className="section-title">Suscripción anual al cambio</h2>
             <p className="section-sub" style={{ marginBottom: 56 }}>
-              Empezá gratis y escalá cuando lo necesités. Todos los planes
-              incluyen la plataforma; la estación se cotiza por separado.
+              Únase al consorcio de empresas que financian la red de monitoreo. Una inversión con retorno de visibilidad, datos e impacto ambiental real en Quetzaltenango.
             </p>
           </Reveal>
 
@@ -1012,7 +1203,6 @@ export default function Landing() {
                         whiteSpace: "nowrap",
                       }}
                     >
-                      Más popular
                     </div>
                   )}
 
@@ -1130,7 +1320,6 @@ export default function Landing() {
         }}
       >
         <Reveal>
-          {/* El logo inferior del cierre de página también adaptado */}
           <div style={{ marginBottom: 16, display: "flex", justifyContent: "center" }}>
             <AirSunBoxLogo size={180} />
           </div>
@@ -1144,9 +1333,9 @@ export default function Landing() {
               color: COLORS.text,
             }}
           >
-            ¿Listo para monitorear
+            ¿Listo para empezar a 
             <br />
-            tu aire en tiempo real?
+            cambiar y ser parte de la revolución ambiental?
           </h2>
           <p
             style={{
@@ -1207,7 +1396,6 @@ export default function Landing() {
             margin: "0 auto",
           }}
         >
-          {/* El logo final del footer */}
           <AirSunBoxLogo size={110} />
 
           <p
@@ -1220,6 +1408,19 @@ export default function Landing() {
           </p>
 
           <div style={{ display: "flex", gap: 24 }}>
+            {/* ENLACE AL MAPA EN EL FOOTER TAMBIÉN */}
+            <a
+              href="https://voluble-creponne-e6c74f.netlify.app/mapa"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                color: COLORS.textMuted,
+                fontSize: ".85rem",
+                transition: "color .2s",
+              }}
+            >
+              Mapa Público
+            </a>
             <Link
               to="/login"
               style={{

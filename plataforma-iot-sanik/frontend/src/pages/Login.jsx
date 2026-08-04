@@ -2,11 +2,10 @@ import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { auth } from '../services/api'
 import useAuthStore from '../store/auth'
-import { Mail, Lock, Eye, EyeOff, Activity, Bell } from 'lucide-react'
+import { Mail, Lock, Eye, EyeOff, Activity, Bell, ArrowLeft } from 'lucide-react'
 
-import logoImg from "../assets/logo2.svg"; // Tu importación original[cite: 2]
+import logoImg from "../assets/logo2.svg";
 
-// Tu paleta sincronizada[cite: 2]
 const COLORS = {
   primary: "#67B7E8",
   accent: "#2BA8A0",
@@ -24,12 +23,11 @@ const AirSunBoxLogo = ({ size = 48 }) => (
     alt="AirSunBox Logo" 
     style={{
       width: size,
-      height: "auto", // Mantiene la proporción original automáticamente
+      height: "auto", 
       display: "block"
     }}
   />
 );
-
 
 export default function Login() {
   const navigate = useNavigate()
@@ -64,14 +62,11 @@ export default function Login() {
       <div 
         className="hidden md:flex w-full md:w-1/2 p-10 lg:p-20 flex-col justify-center relative"
         style={{ 
-          // Ajuste clave: Difuminado mucho más profundo y suave que nace desde el centro izquierdo
           background: `radial-gradient(circle at -10% 50%, rgba(103, 183, 232, 0.4) 0%, rgba(103, 183, 232, 0.15) 45%, ${COLORS.bgLight} 85%)` 
         }}
       >
         <div className="max-w-lg z-10">
-            
-
-          {/* Título Principal[cite: 2] */}
+          {/* Título Principal */}
           <h1 
             className="text-4xl lg:text-5xl font-bold tracking-tight mb-4 leading-tight" 
             style={{ color: COLORS.text, fontFamily: "'Syne', sans-serif" }}
@@ -84,7 +79,7 @@ export default function Login() {
             Conecta, visualiza y gestiona la calidad del aire con tecnología avanzada y en tiempo real.
           </p>
 
-          {/* Lista de características[cite: 2] */}
+          {/* Lista de características */}
           <div className="space-y-6">
             <div className="flex items-start gap-4">
               <div 
@@ -121,14 +116,43 @@ export default function Login() {
 
       {/* ===== LADO DERECHO (Formulario) ===== */}
       <div className="w-full md:w-1/2 bg-white flex flex-col justify-center items-center p-6 md:p-12 relative overflow-y-auto">
+        
+        {/* NUEVO: BOTÓN PARA IR A LA PÁGINA PRINCIPAL */}
+        <div className="absolute top-6 right-6 z-20">
+          <a 
+            href="https://voluble-creponne-e6c74f.netlify.app/" 
+            className="flex items-center gap-2 text-xs font-semibold px-4 py-2.5 rounded-xl border transition-all duration-200 hover:shadow-sm"
+            style={{ 
+              borderColor: COLORS.border, 
+              color: COLORS.textMuted,
+              background: '#FFFFFF'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = COLORS.primary;
+              e.currentTarget.style.color = COLORS.primary;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = COLORS.border;
+              e.currentTarget.style.color = COLORS.textMuted;
+            }}
+          >
+            <ArrowLeft size={14} />
+            Volver al inicio
+          </a>
+        </div>
+
         <div className="w-full max-w-md py-8">
-          
-            <div className="text-center mb-8 md:mb-10">
-            {/* Agregamos justifyContent: "center" y un pequeño margen inferior (mb-6) para que respire */}
-            <div 
-              className="mb-6 flex justify-center" 
-            >
-              <AirSunBoxLogo size={200} />
+          <div className="text-center mb-8 md:mb-10">
+            
+            {/* ENLACE EN EL LOGO HACIA LA LANDING */}
+            <div className="mb-6 flex justify-center">
+              <a 
+                href="https://voluble-creponne-e6c74f.netlify.app/"
+                className="transition-transform duration-200 hover:scale-105 inline-block"
+                title="Ir a la página principal"
+              >
+                <AirSunBoxLogo size={200} />
+              </a>
             </div>
 
             <h2 className="text-xl md:text-2xl font-bold mb-2 font-syne" style={{ color: COLORS.text }}>
@@ -207,7 +231,6 @@ export default function Login() {
               </div>
             </div>
 
-            {/* Checkbox Recordarme y Enlace de Contraseña */}
             <div className="flex items-center justify-between mt-2">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input 
@@ -226,7 +249,7 @@ export default function Login() {
               disabled={loading}
               className="w-full text-white font-bold py-3.5 rounded-xl transition-all duration-300 mt-6 active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
               style={{ 
-               background: `linear-gradient(to right, #3bb4ffff , #80ceffff)`,
+                background: `linear-gradient(to right, #3bb4ffff , #80ceffff)`,
                 boxShadow: '0 4px 14px rgba(103, 183, 232, 0.3)' 
               }}
               onMouseEnter={(e) => {
