@@ -2,11 +2,11 @@
  * Xela Aire — Webhook para Botpress
  *
  * Rutas del backend (según publicRoutes.js + app.js):
- *   GET /api/public/devices            → lista devices con GPS
- *   GET /api/public/zones/aqi?ids=a,b  → AQI de una zona
+ *   GET /api/public/devices            → lista devices con GPS y nombre
+ *   GET /api/public/zones/aqi?ids=a,b  → AQI de una zona con detalle por device
  *
  * Botpress llama:
- *   GET /zona?nombre=Zona%203   → resumen de una zona
+ *   GET /zona?nombre=Zona%203   → resumen de una zona + estaciones
  *   GET /general                → mejor y peor zona ahora
  *   GET /zonas                  → lista de zonas disponibles
  *   GET /health                 → healthcheck
@@ -19,9 +19,6 @@ import ZONAS_GEOJSON from './zonas_quetzaltenango_quetzaltenango.json' with { ty
 
 // ─── CONFIGURACIÓN ────────────────────────────────────────────────────────────
 const API_BASE = process.env.API_BASE ?? 'https://torchless-unpiteously-raphael.ngrok-free.dev';
-
-// localtunnel bloquea peticiones automáticas con una página de bypass.
-// Este header la salta. Sin él todas las respuestas serían HTML en vez de JSON.
 const LT_HEADERS = { 'bypass-tunnel-reminder': 'true' };
 
 const RECOMENDACIONES = {
@@ -44,10 +41,6 @@ const EMOJI_CATEGORIA = {
 
 // ─── HELPERS DE API ───────────────────────────────────────────────────────────
 
-/**
- * Trae todos los devices públicos con coordenadas.
- * Ruta: GET /api/public/devices
- */
 async function listPublic() {
   const url = `${API_BASE}/api/public/devices`;
   const res = await fetch(url, { headers: LT_HEADERS });
@@ -55,13 +48,6 @@ async function listPublic() {
   return res.json();
 }
 
-/**
- * Pide el AQI agregado de un conjunto de devices por sus UUIDs.
- * Ruta: GET /api/public/zones/aqi?ids=uuid1,uuid2,...
- *
- * IMPORTANTE: el backend espera los IDs separados por coma en un
- * único parámetro "ids", NO como ?ids=a&ids=b.
- */
 async function zonaAqi(ids) {
   const params = ids.join(',');
   const url = `${API_BASE}/api/public/zones/aqi?ids=${params}`;
@@ -72,13 +58,14 @@ async function zonaAqi(ids) {
 
 // ─── LÓGICA CENTRAL ───────────────────────────────────────────────────────────
 
-/**
- * Dado un nombre de zona (ej: "Zona 3"), devuelve el resumen AQI.
- */
 async function getResumenZona(nombreZona) {
-  // 1. Traer todos los devices con GPS
+  // 1. Traer todos los devices con GPS y nombre
   const todosDevices = await listPublic();
   const conGPS = todosDevices.filter(d => d.lat && d.lng);
+
+  // Mapa id → nombre para lookup rápido
+  const nombrePorId = {};
+  todosDevices.forEach(d => { nombrePorId[d.id] = d.name || d.id; });
 
   // 2. Encontrar el feature GeoJSON de la zona
   const zonaFeature = ZONAS_GEOJSON.features.find(
@@ -97,15 +84,16 @@ async function getResumenZona(nombreZona) {
 
   if (devicesEnZona.length === 0) {
     return {
-      zona:         nombreZona,
-      categoria:    'Sin datos',
-      emoji:        '⚫',
-      aqi_promedio: null,
-      online_count: 0,
-      total_count:  0,
-      clima:        {},
+      zona:          nombreZona,
+      categoria:     'Sin datos',
+      emoji:         '⚫',
+      aqi_promedio:  null,
+      online_count:  0,
+      total_count:   0,
+      clima:         {},
+      estaciones:    [],
       recomendacion: RECOMENDACIONES['Sin datos'],
-      mensaje_wa:   formatearMensajeWA(nombreZona, null),
+      mensaje_wa:    formatearMensajeWA(nombreZona, null, []),
     };
   }
 
@@ -113,32 +101,41 @@ async function getResumenZona(nombreZona) {
   const ids  = devicesEnZona.map(d => d.id);
   const data = await zonaAqi(ids);
 
+  // 5. Construir lista de estaciones con nombre
+  const estaciones = (data.devices || []).map(d => ({
+    id:        d.id,
+    nombre:    nombrePorId[d.id] || d.id,
+    aqi:       d.aqi,
+    categoria: d.category,
+    hasData:   d.hasData,
+    temp:      d.temp,
+    hum:       d.hum,
+    co2:       d.co2,
+    co:        d.co,
+  }));
+
   return {
-    zona:         nombreZona,
-    categoria:    data.category     ?? 'Sin datos',
-    emoji:        EMOJI_CATEGORIA[data.category] ?? '⚫',
-    aqi_promedio: data.aqi_promedio ?? null,
-    online_count: data.online_count ?? 0,
-    total_count:  data.total_count  ?? devicesEnZona.length,
+    zona:          nombreZona,
+    categoria:     data.category     ?? 'Sin datos',
+    emoji:         EMOJI_CATEGORIA[data.category] ?? '⚫',
+    aqi_promedio:  data.aqi_promedio ?? null,
+    online_count:  data.online_count ?? 0,
+    total_count:   data.total_count  ?? devicesEnZona.length,
     clima: {
       temp: data.clima?.temp_promedio ?? null,
       hum:  data.clima?.hum_promedio  ?? null,
       co2:  data.clima?.co2_promedio  ?? null,
       co:   data.clima?.co_promedio   ?? null,
     },
+    estaciones,
     recomendacion: RECOMENDACIONES[data.category] ?? RECOMENDACIONES['Sin datos'],
-    mensaje_wa:   formatearMensajeWA(nombreZona, data),
+    mensaje_wa:    formatearMensajeWA(nombreZona, data, estaciones),
   };
 }
 
-
-/**
- * Resumen general: mejor y peor zona ahora mismo.
- */
 async function getResumenGeneral() {
   const todosDevices = await listPublic();
   const conGPS = todosDevices.filter(d => d.lat && d.lng);
-
   const zonasConDatos = {};
 
   for (const feature of ZONAS_GEOJSON.features) {
@@ -153,13 +150,11 @@ async function getResumenGeneral() {
       const data = await zonaAqi(ids);
       if (data.aqi_promedio !== null && data.aqi_promedio !== undefined) {
         zonasConDatos[nombreZona] = {
-          aqi:      data.aqi_promedio,
+          aqi:       data.aqi_promedio,
           categoria: data.category,
         };
       }
-    } catch {
-      // Si falla una zona, seguir con las demás
-    }
+    } catch { /* seguir con las demás */ }
   }
 
   const zonas = Object.entries(zonasConDatos);
@@ -193,7 +188,16 @@ function listarZonas() {
 }
 
 // ─── FORMATEADOR DE MENSAJE WHATSAPP ─────────────────────────────────────────
-function formatearMensajeWA(nombreZona, data) {
+function emojiAqi(aqi) {
+  if (aqi === null || aqi === undefined) return '⚫';
+  if (aqi <= 20) return '🟢';
+  if (aqi <= 40) return '🟡';
+  if (aqi <= 60) return '🟠';
+  if (aqi <= 80) return '🔴';
+  return '🚨';
+}
+
+function formatearMensajeWA(nombreZona, data, estaciones = []) {
   if (!data || data.aqi_promedio === null || data.aqi_promedio === undefined) {
     return [
       `⚫ *${nombreZona}*`,
@@ -210,7 +214,7 @@ function formatearMensajeWA(nombreZona, data) {
     `${emoji} *Aire en ${nombreZona}*`,
     ``,
     `Calidad: *${data.category}*`,
-    `AQI: ${data.aqi_promedio}`,
+    `AQI promedio: ${data.aqi_promedio}`,
   ];
 
   if (clima.temp_promedio != null) lineas.push(`🌡️ Temp: ${clima.temp_promedio}°C`);
@@ -218,7 +222,22 @@ function formatearMensajeWA(nombreZona, data) {
   if (clima.co2_promedio  != null) lineas.push(`🫁 CO₂:  ${clima.co2_promedio} ppm`);
   if (clima.co_promedio   != null) lineas.push(`💨 CO:   ${clima.co_promedio} ppm`);
 
-  lineas.push(``, `Estaciones: ${data.online_count ?? '?'} activas`);
+  // Lista de estaciones activas
+  const activas = estaciones.filter(e => e.hasData);
+  if (activas.length > 0) {
+    lineas.push(``, `📍 *Estaciones (${activas.length} activas):*`);
+    activas.forEach(e => {
+      lineas.push(`${emojiAqi(e.aqi)} ${e.nombre} — AQI ${e.aqi} (${e.categoria})`);
+    });
+  }
+
+  // Estaciones sin datos
+  const sinDatos = estaciones.filter(e => !e.hasData);
+  if (sinDatos.length > 0) {
+    lineas.push(``, `⚫ *Sin datos:*`);
+    sinDatos.forEach(e => lineas.push(`• ${e.nombre}`));
+  }
+
   lineas.push(``, RECOMENDACIONES[data.category] ?? '');
   lineas.push(``, `Ver mapa: https://voluble-creponne-e6c74f.netlify.app/mapa`);
 
@@ -230,10 +249,6 @@ const app  = express();
 const PORT = process.env.PORT ?? 3001;
 app.use(express.json());
 
-/**
- * GET /zona?nombre=Zona%203
- * Devuelve { mensaje_wa, zona, categoria, aqi_promedio, clima, ... }
- */
 app.get('/zona', async (req, res) => {
   const nombre = req.query.nombre?.trim();
   if (!nombre) {
@@ -251,10 +266,6 @@ app.get('/zona', async (req, res) => {
   }
 });
 
-/**
- * GET /general
- * Mejor y peor zona de Xela ahora mismo.
- */
 app.get('/general', async (_req, res) => {
   try {
     const resultado = await getResumenGeneral();
@@ -265,18 +276,10 @@ app.get('/general', async (_req, res) => {
   }
 });
 
-/**
- * GET /zonas
- * Lista de zonas disponibles (útil para el menú del bot).
- */
 app.get('/zonas', (_req, res) => {
   res.json({ zonas: listarZonas() });
 });
 
-/**
- * GET /health
- * Para que el hosting sepa que el servicio está vivo.
- */
 app.get('/health', (_req, res) => res.json({ ok: true }));
 
 app.listen(PORT, () => console.log(`Webhook escuchando en :${PORT}`));
