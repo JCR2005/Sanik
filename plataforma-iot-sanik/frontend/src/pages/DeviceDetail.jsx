@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import ClienteLayout from '../components/sanik/ClienteLayout'
 import { devices as devicesApi, dots as dotsApi } from '../services/api'
+import { useWebSocket } from '../hooks/useWebSocket'
 import MapPicker from '../components/MapPicker'
 
 import { 
@@ -135,6 +136,36 @@ export default function ClientDeviceDetail() {
     const interval = setInterval(fetchLiveUpdates, 5000)
     return () => clearInterval(interval)
   }, [deviceId])
+
+  // ── Tiempo real por WebSocket (respuesta inmediata) ──
+  const { lastValues: wsValues } = useWebSocket([deviceId])
+  const wsRefreshRef = useRef(null)
+  useEffect(() => {
+    const mine = wsValues[deviceId]
+    if (!mine || !Object.keys(mine).length) return
+
+    setLastValues(prev => {
+      const next = { ...prev }
+      Object.entries(mine).forEach(([variable, val]) => {
+        next[variable] = val.value
+      })
+      return next
+    })
+
+    // Refrescar AQI con debounce
+    clearTimeout(wsRefreshRef.current)
+    wsRefreshRef.current = setTimeout(() => {
+      devicesApi.aqi(deviceId).then(aqiRes => {
+        if (aqiRes) {
+          setAqiData({
+            aqi: aqiRes.aqi,
+            category: aqiRes.category,
+            color: getAqiColor(aqiRes.category)
+          })
+        }
+      }).catch(() => {})
+    }, 600)
+  }, [wsValues, deviceId])
 
   useEffect(() => {
     if (!deviceId || !activeVars.length || activeView !== 'grafica') {

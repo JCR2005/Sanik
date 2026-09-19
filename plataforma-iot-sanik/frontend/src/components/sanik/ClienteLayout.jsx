@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import useAuthStore from '../../store/auth'
 import useThemeStore from '../../store/theme'
-import { LayoutDashboard, Cpu, FileText, LogOut, ChevronRight, Sun, Moon, Bell, User, Menu, X } from 'lucide-react'
+import { LayoutDashboard, Cpu, FileText, LogOut, ChevronRight, Sun, Moon, Bell, User, Menu, X, Layers } from 'lucide-react'
 
 
 import logoImg from "../../assets/logo2.svg";
@@ -27,6 +27,7 @@ const AirSunBoxLogo = ({ size = 48 }) => (
 const CLIENT_NAV = [
   { label: 'Dashboard',    icon: LayoutDashboard, path: '/dashboard' },
   { label: 'Estaciones',   icon: Cpu,             path: '/dispositivos' },
+  { label: 'Espacios',     icon: Layers,          path: '/espacios' },
   { label: 'Reportes',     icon: FileText,        path: '/reportes' },
   { label: 'Alertas',      icon: Bell,            path: '/alerts' },
   { label: 'Solicitudes',  icon: FileText,        path: '/solicitudes' },
@@ -86,7 +87,9 @@ export default function ClienteLayout({ children }) {
 
         {/* Navegación */}
         <nav className="flex-1 px-4 py-2 space-y-1.5 overflow-y-auto">
-          {CLIENT_NAV.map(({ label, icon: Icon, path }) => {
+          {/* Independientes (B): gestionan por Espacios (devices dentro de cada espacio).
+              Dependientes (A): gestionan Estaciones directas, sin apartado de Espacios. */}
+          {(org?.type === 'B' ? CLIENT_NAV.filter(i => i.path !== '/dispositivos') : CLIENT_NAV.filter(i => i.path !== '/espacios')).map(({ label, icon: Icon, path }) => {
             const active = isActive(path);
             return (
               <Link 

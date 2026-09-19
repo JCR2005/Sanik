@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import AdminLayout from '../../components/admin/AdminLayout'
 import { devices as devicesApi, dots as dotsApi } from '../../services/api'
+import { useWebSocket } from '../../hooks/useWebSocket'
 import MapPicker from '../../components/MapPicker'
 
 import { 
@@ -108,6 +109,41 @@ export default function AdminDeviceDetail() {
     const interval = setInterval(fetch, 5000)
     return () => clearInterval(interval)
   }, [deviceId, clientId])
+
+  // ── Tiempo real por WebSocket (respuesta inmediata) ──
+  const { lastValues: wsValues } = useWebSocket([deviceId])
+  const wsRefreshRef = useRef(null)
+  useEffect(() => {
+    const mine = wsValues[deviceId]
+    if (!mine || !Object.keys(mine).length) return
+
+    setLastValues(prev => {
+      const next = { ...prev }
+      Object.entries(mine).forEach(([variable, val]) => {
+        next[variable] = val.value
+      })
+      return next
+    })
+
+    // Re-fetch de la gráfica cuando cambian las variables activas
+    clearTimeout(wsRefreshRef.current)
+    wsRefreshRef.current = setTimeout(() => {
+      if (!deviceId || !activeVars.length) return
+      dotsApi.getMultiple(deviceId, activeVars, range, clientId).then(data => {
+        const timeMap = {}
+        for (const [variable, points] of Object.entries(data || {})) {
+          if (!Array.isArray(points)) continue
+          points.forEach(p => {
+            const t = new Date(p.time).toLocaleTimeString('es-GT', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+            if (!timeMap[t]) timeMap[t] = { time: t, _rawTime: new Date(p.time).getTime() }
+            timeMap[t][variable] = p.value
+          })
+        }
+        const sorted = Object.values(timeMap).sort((a, b) => a._rawTime - b._rawTime)
+        setChartData(sorted)
+      }).catch(() => {})
+    }, 800)
+  }, [wsValues, deviceId])
 
   // Datos históricos para la gráfica
   useEffect(() => {

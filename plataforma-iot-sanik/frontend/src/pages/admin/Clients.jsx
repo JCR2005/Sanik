@@ -26,7 +26,8 @@ function CreateClientModal({ onClose, onCreate }) {
     phone: '', 
     location: '', 
     plan: 'free',
-    notes: '' 
+    notes: '',
+    type: 'A'
   })
 
   const set = (field) => (e) => setForm(prev => ({ ...prev, [field]: e.target.value }))
@@ -44,7 +45,8 @@ function CreateClientModal({ onClose, onCreate }) {
         phone: form.phone || undefined,
         location: form.location || undefined,
         plan: form.plan,
-        notes: form.notes || undefined
+        notes: form.notes || undefined,
+        type: form.type
       }
       const res = await orgsApi.create(payload)
       const created = res?.org || res?.organization || res
@@ -79,21 +81,51 @@ function CreateClientModal({ onClose, onCreate }) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2">
               <label className="text-sm font-medium block mb-2" style={{ color: 'var(--text)' }}>
-                Nombre de la organización <span style={{ color: '#EF4444' }}>*</span>
+                Tipo de cliente
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setForm(prev => ({ ...prev, type: 'A' }))}
+                  className="text-left rounded-2xl border p-4 transition-all"
+                  style={form.type === 'A'
+                    ? { background: '#67B7E8', borderColor: '#67B7E8', color: 'white', boxShadow: '0 4px 12px rgba(103,183,232,0.4)' }
+                    : { background: 'var(--bg)', borderColor: 'var(--border)', color: 'var(--text2)' }}
+                >
+                  <div className="text-sm font-bold mb-0.5">Dependiente</div>
+                  <div className="text-[11px] opacity-75 leading-snug">Gestionado por Sanik. Ve sus estaciones directamente.</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setForm(prev => ({ ...prev, type: 'B' }))}
+                  className="text-left rounded-2xl border p-4 transition-all"
+                  style={form.type === 'B'
+                    ? { background: '#2BA8A0', borderColor: '#2BA8A0', color: 'white', boxShadow: '0 4px 12px rgba(43,168,160,0.4)' }
+                    : { background: 'var(--bg)', borderColor: 'var(--border)', color: 'var(--text2)' }}
+                >
+                  <div className="text-sm font-bold mb-0.5">Independiente</div>
+                  <div className="text-[11px] opacity-75 leading-snug">Self-service. Gestiona espacios con sus dispositivos.</div>
+                </button>
+              </div>
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="text-sm font-medium block mb-2" style={{ color: 'var(--text)' }}>
+                Nombre de la organización* <span style={{ color: '#EF4444' }}>*</span>
               </label>            
               <input className={INPUT} style={inputStyle} value={form.orgName} onChange={set('orgName')} placeholder="Ej. Municipalidad de Xela" required />
             </div>
 
             <div className="md:col-span-2">
               <label className="text-sm font-medium block mb-2" style={{ color: 'var(--text)' }}>
-                Nombre del contacto principal <span style={{ color: 'var(--text2)', fontWeight: 'normal' }}>(Opcional)</span>
+                Nombre del contacto principal* <span style={{ color: 'var(--text2)', fontWeight: 'normal' }}>(Opcional)</span>
               </label>            
               <input className={INPUT} style={inputStyle} value={form.contactName} onChange={set('contactName')} placeholder="Ej. Juan Pérez" />
             </div>
 
             <div>
               <label className="text-sm font-medium block mb-2" style={{ color: 'var(--text)' }}>
-                Correo electrónico <span style={{ color: 'var(--text2)', fontWeight: 'normal' }}>(Opcional)</span>
+                Correo electrónico* <span style={{ color: 'var(--text2)', fontWeight: 'normal' }}>(Opcional)</span>
               </label>
               <input className={INPUT} style={inputStyle} type="email" value={form.email} onChange={set('email')} placeholder="admin@org.com" />
             </div>
@@ -173,6 +205,8 @@ export default function AdminClients() {
   const [loadError, setLoadError] = useState('')
   const [search, setSearch] = useState('')
   const [showModal, setShowModal] = useState(false)
+  const [tab, setTab] = useState('todas')
+  const [busy, setBusy] = useState(null)
   
   // ESTADO NUEVO: Para manejar la notificación de éxito
   const [successMsg, setSuccessMsg] = useState('')
@@ -196,7 +230,13 @@ export default function AdminClients() {
           location: org.location || '',
           status: org.status || 'active',
           paidUntil: org.paid_until || org.paidUntil || null,
-          createdAt: org.created_at || org.createdAt || null
+          createdAt: org.created_at || org.createdAt || null,
+          type: org.type || null,
+          category: org.category || (org.type === 'B' ? 'independiente' : 'dependiente'),
+          bCategory: org.b_category || 'estandar',
+          paymentExempt: !!org.payment_exempt,
+          spaceCount: org.space_count ?? 0,
+          accountType: org.account_type || 'organizacion'
         }))
         if (active) setClients(mapped)
       } catch (err) {
@@ -213,10 +253,46 @@ export default function AdminClients() {
     return () => { active = false }
   }, [])
 
-  const filtered = clients.filter(c =>
-    (c.name || '').toLowerCase().includes(search.toLowerCase()) ||
-    (c.email || '').toLowerCase().includes(search.toLowerCase())
-  )
+  const filtered = clients.filter(c => {
+    if (tab === 'dependientes' && c.category !== 'dependiente') return false
+    if (tab === 'independientes' && c.category !== 'independiente') return false
+    return (c.name || '').toLowerCase().includes(search.toLowerCase()) ||
+           (c.email || '').toLowerCase().includes(search.toLowerCase())
+  })
+
+  const flash = (msg) => {
+    setSuccessMsg(msg)
+    setTimeout(() => setSuccessMsg(''), 3000)
+  }
+
+  const onToggleExempt = async (c) => {
+    const next = !c.paymentExempt
+    setBusy(`exempt:${c.id}`)
+    try {
+      await orgsApi.setPaymentExempt(c.id, next)
+      setClients(prev => prev.map(x => x.id === c.id ? { ...x, paymentExempt: next } : x))
+      flash(next ? 'Organización exonerada de pago' : 'Exoneración removida')
+    } catch (err) {
+      setLoadError(err.message || 'No se pudo actualizar')
+      setTimeout(() => setLoadError(''), 4000)
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  const onSetBType = async (c, bCategory) => {
+    setBusy(`bcategory:${c.id}`)
+    try {
+      await orgsApi.setBCategory(c.id, bCategory)
+      setClients(prev => prev.map(x => x.id === c.id ? { ...x, bCategory } : x))
+      flash('Categoría de plan actualizada')
+    } catch (err) {
+      setLoadError(err.message || 'No se pudo actualizar')
+      setTimeout(() => setLoadError(''), 4000)
+    } finally {
+      setBusy(null)
+    }
+  }
 
   const planColor = { free: 'var(--text2)', pro: '#2BA8A0', empresarial: '#A78BFA', enterprise: '#A78BFA' }
   const statusBadge = { active: 'bg-[#2BA8A0]/10 text-[#2BA8A0]', suspended: 'bg-red-500/10 text-red-500', pending: 'bg-amber-500/10 text-amber-500' }
@@ -245,7 +321,13 @@ export default function AdminClients() {
               activeDevices: c.active_devices ?? c.activeDevices ?? 0,
               email: c.email || '', phone: c.phone || '', location: c.location || '',
               status: c.status || 'active', paidUntil: c.paid_until || c.paidUntil || null,
-              createdAt: c.created_at || c.createdAt || new Date().toISOString()
+              createdAt: c.created_at || c.createdAt || new Date().toISOString(),
+              type: c.type || 'A',
+              category: c.category || 'dependiente',
+              bCategory: c.b_category || 'estandar',
+              paymentExempt: !!c.payment_exempt,
+              spaceCount: c.space_count ?? 0,
+              accountType: c.account_type || 'organizacion'
             }
             setClients(prev => [normalized, ...prev])
             setShowModal(false)
@@ -258,8 +340,7 @@ export default function AdminClients() {
       )}
       
       <div 
-        className="min-h-full py-4 lg:py-6"
-        style={{ backgroundImage: 'radial-gradient(circle at 50% -20%, rgba(103,183,232,0.1) 0%, transparent 50%)' }}
+        className="min-h-full py-4 lg:py-6 page-bg"
       >
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-10">
           <div className="flex flex-col gap-1">
@@ -286,6 +367,26 @@ export default function AdminClients() {
           </div>
         )}
 
+        {/* Tabs por clasificación */}
+        <div className="flex items-center gap-2 mb-8 flex-wrap">
+          {[
+            { key: 'todas', label: 'Todas', count: clients.length },
+            { key: 'dependientes', label: 'Dependientes', count: clients.filter(c => c.category === 'dependiente').length },
+            { key: 'independientes', label: 'Independientes', count: clients.filter(c => c.category === 'independiente').length }
+          ].map(t => (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className="px-4 py-2 rounded-xl text-xs font-bold transition-all"
+              style={tab === t.key
+                ? { background: COLORS.primary, color: '#fff', boxShadow: `0 4px 12px ${COLORS.primary}40` }
+                : { color: 'var(--text2)', border: '1px solid var(--border)', background: 'transparent' }}
+            >
+              {t.label} <span className="opacity-75 font-semibold">({t.count})</span>
+            </button>
+          ))}
+        </div>
+
         {/* Buscador */}
         <div className="relative mb-8 group">
           <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 transition-colors group-focus-within:text-[#67B7E8]" style={{ color: 'var(--text2)' }} />
@@ -304,7 +405,7 @@ export default function AdminClients() {
             <table className="w-full text-left border-collapse min-w-[800px] lg:min-w-full">
               <thead>
                 <tr className="border-b bg-black/[0.01] dark:bg-white/[0.01]" style={{ borderColor: 'var(--border)' }}>
-                  {['Organización', 'Plan actual', 'Dispositivos', 'Estado', 'Suscripción hasta', ''].map(h => (
+                  {['Organización', 'Plan actual', 'Dispositivos', 'Categoría', 'Estado', 'Suscripción hasta', ''].map(h => (
                     <th key={h} className="text-xs font-bold px-6 py-4 uppercase tracking-wider" style={{ color: 'var(--text2)' }}>{h}</th>
                   ))}
                 </tr>
@@ -342,6 +443,45 @@ export default function AdminClients() {
                           <span className="text-xs font-medium" style={{ color: 'var(--text2)' }}>
                             En línea
                           </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-5">
+                      <div className="flex flex-col gap-1.5 min-w-[150px]">
+                        <span className={`text-xs font-bold px-2.5 py-1 rounded-lg w-fit ${c.category === 'independiente' ? 'bg-[#2BA8A0]/10 text-[#2BA8A0]' : 'bg-[#67B7E8]/10 text-[#67B7E8]'}`}>
+                          {c.category === 'independiente' ? 'Independiente' : 'Dependiente'}
+                        </span>
+                        <span className="text-[11px] font-semibold" style={{ color: 'var(--text2)' }}>
+                          {c.accountType === 'individual' ? 'Individual' : 'Organización'}
+                        </span>
+                        {c.category === 'independiente' && (
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <select
+                              value={c.bCategory}
+                              disabled={busy === `bcategory:${c.id}`}
+                              onDoubleClick={e => e.stopPropagation()}
+                              onClick={e => e.stopPropagation()}
+                              onChange={e => onSetBType(c, e.target.value)}
+                              className="text-xs font-semibold rounded-lg px-2 py-1 outline-none border cursor-pointer"
+                              style={{ background: 'var(--bg)', borderColor: 'var(--border)', color: 'var(--text)' }}
+                            >
+                              <option value="estandar">Estándar</option>
+                              <option value="especial">Especial</option>
+                            </select>
+                            <label
+                              className="flex items-center gap-1.5 cursor-pointer select-none"
+                              onClick={e => e.stopPropagation()}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={c.paymentExempt}
+                                disabled={busy === `exempt:${c.id}`}
+                                onChange={() => onToggleExempt(c)}
+                                className="w-3.5 h-3.5 rounded border-gray-300"
+                              />
+                              <span className="text-[11px] font-semibold" style={{ color: 'var(--text2)' }}>Exento</span>
+                            </label>
+                          </div>
                         )}
                       </div>
                     </td>

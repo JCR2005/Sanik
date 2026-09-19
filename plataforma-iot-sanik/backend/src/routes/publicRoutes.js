@@ -172,10 +172,10 @@ export default async function publicRoutes(app) {
       }
     })
     return calculateRespiratoryRisk(devices)
-    })
+  })
 
-    // Reporte de contaminación ambiental global
-    app.get('/reports/environmental', async (req) => {
+  // Reporte de contaminación ambiental global
+  app.get('/reports/environmental', async (req) => {
     let { start, end } = req.query
     const targetVars = ['pm25', 'pm10', 'co', 'o3', 'so2', 'nox', 'h2s']
     let query = `
@@ -209,7 +209,7 @@ export default async function publicRoutes(app) {
       }
     })
     return analyzeEnvironmentalImpact(devices)
-    })
+  })
     
   // ── 3. RESUMEN COMPLETO DE UNA ZONA ─────────────────────────────────────────
   // GET /zones/aqi?ids=1,2,5

@@ -33,10 +33,7 @@ export default function AdminDashboard() {
     <AdminLayout>
       {/* Fondo Glow Premium - Más grande y suave */}
       <div 
-        className="min-h-full py-4 lg:py-6"
-        style={{ 
-          backgroundImage: 'radial-gradient(circle at 50% -20%, rgba(103,183,232,0.18) 0%, rgba(103,183,232,0.05) 30%, transparent 70%)'
-        }}
+        className="min-h-full py-4 lg:py-6 page-bg"
       >
         <div className="mb-10 flex flex-col gap-1">
           <p className="text-sm font-semibold capitalize tracking-wide" style={{ color: '#67B7E8' }}>

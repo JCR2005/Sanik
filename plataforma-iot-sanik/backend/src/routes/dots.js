@@ -221,6 +221,9 @@ export default async function dotsRoutes(app) {
           { EX: 86400 } 
         )
       }
+
+      // Notificar a los clientes suscritos al WebSocket (tiempo real)
+      app.realtime.broadcast(deviceId, variable, value, now)
       guardados++
     }
 

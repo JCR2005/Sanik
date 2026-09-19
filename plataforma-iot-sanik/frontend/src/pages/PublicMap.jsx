@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, GeoJSON, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { devices as devicesApi } from '../services/api'; 
 import logoImg from "../assets/logo2.svg"; 
+import { useWebSocket } from '../hooks/useWebSocket';
 
 import * as turf from '@turf/turf';
 import XELA_ZONAS_GEOJSON from '../GeoJasons/zonas_quetzaltenango_quetzaltenango.json';
@@ -1036,9 +1037,17 @@ const ZonaPanel = ({ zonaFeature, zonaAqiResult, loadingZona, onClose, onSelectD
 const DevicePanel = ({ selectedDevice, onBack, isMobile, currentAqiColor, temp, hum, co2, co }) => {
   if (!selectedDevice) return null;
 
-  const category = selectedDevice.status === 'online' ? (selectedDevice.aqi_category || 'Calculando') : 'Sin datos';
-  const aqiValue = (selectedDevice.status === 'online' && selectedDevice.aqi_value !== null) ? Math.round(selectedDevice.aqi_value) : null;
+  const isOnline = selectedDevice.status === 'online';
+  const aqiNumber = Number(selectedDevice.aqi_value);
+  const hasAqi = isOnline && Number.isFinite(aqiNumber);
+  const category = isOnline ? (selectedDevice.aqi_category || 'Calculando') : 'Sin datos';
+  const aqiValue = hasAqi ? Math.round(aqiNumber) : null;
   const recomend = RECOMENDACIONES[category];
+
+  const fmt = (value, decimals) => {
+    const n = Number(value);
+    return Number.isFinite(n) ? n.toFixed(decimals) : null;
+  };
 
   const panelStyle = isMobile
     ? {
@@ -1181,13 +1190,13 @@ const DevicePanel = ({ selectedDevice, onBack, isMobile, currentAqiColor, temp, 
 
             {/* Stats Clima/Gases */}
             <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <StatRow icon={Thermometer} label="Temp." value={temp != null ? Number(temp).toFixed(1) : null} unit="°C" color="#EF4444" />
+              <StatRow icon={Thermometer} label="Temp." value={fmt(temp, 1)} unit="°C" color="#EF4444" />
               <div style={{ height: '1px', backgroundColor: COLORS.border, margin: '2px 0' }} />
-              <StatRow icon={Droplets} label="Hum." value={hum != null ? Number(hum).toFixed(1) : null} unit="%" color="#3B82F6" />
+              <StatRow icon={Droplets} label="Hum." value={fmt(hum, 1)} unit="%" color="#3B82F6" />
               <div style={{ height: '1px', backgroundColor: COLORS.border, margin: '2px 0' }} />
-              <StatRow icon={Cloud} label="CO₂" value={co2 != null ? Number(co2).toFixed(0) : null} unit="ppm" color="#8B5CF6" />
+              <StatRow icon={Cloud} label="CO₂" value={fmt(co2, 0)} unit="ppm" color="#8B5CF6" />
               <div style={{ height: '1px', backgroundColor: COLORS.border, margin: '2px 0' }} />
-              <StatRow icon={Wind} label="CO" value={co != null ? Number(co).toFixed(1) : null} unit="ppm" color="#F97316" />
+              <StatRow icon={Wind} label="CO" value={fmt(co, 1)} unit="ppm" color="#F97316" />
             </div>
           </div>
         </div>
@@ -1246,6 +1255,100 @@ export default function PublicMap() {
   const [searchMarker,      setSearchMarker]      = useState(null);
   const [loadingZona,       setLoadingZona]       = useState(false);   
 
+  // ── Tiempo real: suscribirse a los dispositivos visibles (con GPS) ──
+  const visibleIds = useMemo(
+    () => devices.filter(d => d.lat && d.lng).map(d => d.id).join(','),
+    [devices]
+  );
+  const visibleIdList = useMemo(() => visibleIds ? visibleIds.split(',') : [], [visibleIds]);
+  const { lastValues, connected } = useWebSocket(visibleIdList);
+
+  // Al recibir datos nuevos por WebSocket, refrescar el AQI de los
+  // dispositivos afectados y el promedio de la zona activa (con debounce).
+  // No se toca selectedDevice ni selectedZonaFeature, así el usuario no pierde
+  // la estación / vista que está observando.
+  const selZonaRef = useRef(selectedZonaFeature);
+  useEffect(() => { selZonaRef.current = selectedZonaFeature; }, [selectedZonaFeature]);
+  const zonaAqiDataRef = useRef(zoneAqiData);
+  useEffect(() => { zonaAqiDataRef.current = zoneAqiData; }, [zoneAqiData]);
+  const devicesRef = useRef(devices);
+  useEffect(() => { devicesRef.current = devices; }, [devices]);
+
+  const wsDebounceRef = useRef(null);
+  useEffect(() => {
+    const affectedIds = Object.keys(lastValues);
+    if (!affectedIds.length) return;
+    clearTimeout(wsDebounceRef.current);
+    wsDebounceRef.current = setTimeout(async () => {
+      try {
+        const updates = await Promise.all(
+          affectedIds.map(async (id) => {
+            try {
+              const aqiData = await devicesApi.aqiPublic(id);
+              const my = lastValues[id] || {};
+              const liveVars = aqiData.variables || {};
+              Object.entries(my).forEach(([v, val]) => {
+                liveVars[v] = { value: val.value, time: val.time, ...(liveVars[v] || {}) };
+              });
+              return { id, aqi_value: aqiData.aqi ?? null, aqi_category: aqiData.category ?? null, liveVariables: liveVars };
+            } catch { return null; }
+          })
+        );
+
+        const patch = {};
+        updates.forEach(u => { if (u) patch[u.id] = u; });
+
+        const nextDevices = devicesRef.current.map(d => {
+          const u = patch[d.id];
+          return u ? { ...d, ...u } : d;
+        });
+        setDevices(nextDevices);
+
+        // Actualizar el color/estado de la zona en el mapa con los datos
+        // nuevos de los dispositivos afectados (sin recrear la vista).
+        try {
+          const zonePatch = {};
+          nextDevices.forEach(d => {
+            if (!(d.lat && d.lng)) return;
+            const pt = turf.point([d.lng, d.lat]);
+            XELA_ZONAS_GEOJSON.features.forEach(feature => {
+              if (turf.booleanPointInPolygon(pt, feature)) {
+                const zonaName = feature.properties.zona;
+                if (!zonePatch[zonaName]) zonePatch[zonaName] = [];
+                zonePatch[zonaName].push({ id: d.id, status: d.status, aqi_category: d.aqi_category, aqi_value: d.aqi_value });
+              }
+            });
+          });
+          setZoneAqiData(prev => {
+            const next = { ...prev };
+            Object.entries(zonePatch).forEach(([zonaName, devs]) => {
+              const byId = {};
+              devs.forEach(d => byId[d.id] = d);
+              const existing = (next[zonaName] || []).filter(d => !byId[d.id]);
+              next[zonaName] = [...existing, ...devs];
+            });
+            return next;
+          });
+        } catch {}
+
+        // Refrescar el promedio de la zona activa si un device afectado
+        // pertenece a esa zona (sin cerrar la estación ni la vista actual).
+        const zona = selZonaRef.current;
+        if (zona) {
+          const zonaName = zona.properties.zona;
+          const idsEnZona = (zonaAqiDataRef.current[zonaName] || []).map(d => d.id);
+          const hayAfectadoEnZona = affectedIds.some(id => idsEnZona.includes(id));
+          if (hayAfectadoEnZona && idsEnZona.length) {
+            try {
+              const data = await devicesApi.zonaAqi(idsEnZona);
+              if (data) setZonaAqiResult(data);
+            } catch {}
+          }
+        }
+      } catch {}
+    }, 800);
+  }, [lastValues]);
+
   useEffect(() => {
     const fetchPublicDevices = async () => {
       try {
@@ -1256,8 +1359,8 @@ export default function PublicMap() {
           conGPS.map(async (d) => {
             try {
               const aqiData = await devicesApi.aqiPublic(d.id);
-              return { ...d, aqi_value: aqiData.aqi, aqi_category: aqiData.category, liveVariables: aqiData.variables };
-            } catch { return d; }
+              return { ...d, aqi_value: aqiData.aqi ?? null, aqi_category: aqiData.category ?? null, liveVariables: aqiData.variables || {} };
+            } catch { return { ...d, aqi_value: null, aqi_category: null, liveVariables: {} }; }
           })
         );
         setDevices(devicesWithAqi);
@@ -1283,6 +1386,7 @@ export default function PublicMap() {
     fetchPublicDevices();
   }, []);
 
+  const loadedZonaRef = useRef(null);
   useEffect(() => {
     if (!selectedZonaFeature) {
       setZonaAqiResult(null);
@@ -1300,10 +1404,18 @@ export default function PublicMap() {
       return;
     }
 
+    // Solo resetear la selección cuando la zona elegida cambia de verdad.
+    // Si solo se refrescó zoneAqiData (color en vivo), mantener la estación
+    // que el usuario está observando.
+    const zonaCambio = loadedZonaRef.current !== zonaName;
+    loadedZonaRef.current = zonaName;
+
     const fetchZonaAqi = async () => {
-      setLoadingZona(true);
-      setZonaAqiResult(null);
-      setSelectedDevice(null);
+      if (zonaCambio) {
+        setLoadingZona(true);
+        setZonaAqiResult(null);
+        setSelectedDevice(null);
+      }
       try {
         const data = await devicesApi.zonaAqi(idsEnZona);
         setZonaAqiResult(data);
@@ -1318,7 +1430,23 @@ export default function PublicMap() {
   }, [selectedZonaFeature, zoneAqiData]);
 
   const handleZonaClick = (feature) => setSelectedZonaFeature(feature);
-  const handleSelectDeviceFromZona = (device) => setSelectedDevice(device);
+  const handleSelectDeviceFromZona = (device) => {
+    const zonaDev = zonaAqiResult?.devices?.find(zd => zd.id === device.id);
+    setSelectedDevice({
+      ...device,
+      aqi_value: zonaDev?.aqi ?? device.aqi_value ?? null,
+      aqi_category: zonaDev?.category ?? device.aqi_category ?? null,
+      liveVariables: {
+        ...(device.liveVariables || {}),
+        ...(zonaDev && {
+          temperatura: { value: zonaDev.temp },
+          humedad:     { value: zonaDev.hum },
+          co2:         { value: zonaDev.co2 },
+          co:          { value: zonaDev.co },
+        }),
+      },
+    });
+  };
   const handleCloseDevice = () => setSelectedDevice(null);
   const handleCloseZona = () => {
     setSelectedZonaFeature(null);
@@ -1334,12 +1462,51 @@ export default function PublicMap() {
   const co   = liveVars.co?.value  ?? null;
   const currentAqiColor = selectedDevice?.status === 'online' ? getAqiColor(selectedDevice?.aqi_category) : '#9CA3AF';
 
+  // Mantener el dispositivo seleccionado actualizado en tiempo real
+  const selAqiRef = useRef(null);
+  useEffect(() => {
+    if (!selectedDevice) return;
+    const mine = lastValues[selectedDevice.id];
+    if (mine && Object.keys(mine).length) {
+      setSelectedDevice(prev => {
+        if (!prev) return prev;
+        const prevVars = prev.liveVariables || {};
+        const merged = { ...prevVars };
+        Object.entries(mine).forEach(([v, val]) => {
+          merged[v] = { value: val.value, time: val.time, ...(merged[v] || {}) };
+        });
+        return { ...prev, liveVariables: merged };
+      });
+
+      // Refrescar el AQI del dispositivo seleccionado (con debounce)
+      clearTimeout(selAqiRef.current);
+      selAqiRef.current = setTimeout(async () => {
+        try {
+          const aqiData = await devicesApi.aqiPublic(selectedDevice.id);
+          if (aqiData && (aqiData.aqi ?? null) != null) {
+            setSelectedDevice(prev => (prev
+              ? { ...prev, aqi_value: aqiData.aqi, aqi_category: aqiData.category }
+              : prev));
+          }
+        } catch {}
+      }, 700);
+    }
+
+    return () => clearTimeout(selAqiRef.current);
+  }, [lastValues, selectedDevice?.id]);
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', backgroundColor: COLORS.bgLight, fontFamily: 'sans-serif' }}>
       <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: isMobile ? '10px 16px' : '16px 6vw', backgroundColor: COLORS.white, borderBottom: `1px solid ${COLORS.border}`, zIndex: 1000, position: 'relative', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <img src={logoImg} alt="AirSunBox" style={{ height: isMobile ? '32px' : '40px' }} />
           {!isMobile && <h1 style={{ margin: 0, fontSize: '1.2rem', color: COLORS.text, fontWeight: 'bold' }}>Mapa Ambiental Público</h1>}
+          {connected && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: '#2BA8A015', padding: '5px 10px', borderRadius: '99px', border: '1px solid #2BA8A040' }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#2BA8A0', animation: 'pulse 1.5s ease-in-out infinite' }} />
+              <span style={{ fontSize: '0.7rem', fontWeight: '700', color: '#2BA8A0' }}>En vivo</span>
+            </div>
+          )}
         </div>
         <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '6px', color: COLORS.textMuted, textDecoration: 'none', fontSize: isMobile ? '0.8rem' : '0.9rem', fontWeight: '500' }}>
           <ArrowLeft size={isMobile ? 14 : 16} />

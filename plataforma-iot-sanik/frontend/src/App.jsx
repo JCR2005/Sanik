@@ -3,6 +3,8 @@ import useAuthStore from './store/auth'
 import Landing from './pages/Landing'
 import PublicMap from './pages/PublicMap'
 import Login from './pages/Login'
+import ForgotPassword from './pages/ForgotPassword'
+import ResetPassword from './pages/ResetPassword'
 import Devices from './pages/Devices'
 import Dashboard from './pages/Dashboard'
 import Alerts from './pages/Alerts'
@@ -18,6 +20,9 @@ import ClientDeviceDetail from './pages/DeviceDetail'
 import Reports from './pages/Reports'
 import GlobalReports from './pages/GlobalReports'
 import VariableDetail from './pages/VariableDetail'
+import Spaces from './pages/Spaces'
+import SpaceDetail from './pages/SpaceDetail'
+import SpaceAqi from './pages/SpaceAqi'
 const ADMIN_ROLES = ['admin', 'superadmin', 'worker']
 
 /**
@@ -26,7 +31,7 @@ const ADMIN_ROLES = ['admin', 'superadmin', 'worker']
  * @param {string} redirectTo - Ruta a la que redirigir si no tiene permisos (por defecto /login o /devices).
  */
 function ProtectedRoute({ children, allowedRoles, redirectTo }) {
-  const { token, user } = useAuthStore()
+  const { token, user, org } = useAuthStore()
 
   // 1. Si no hay token, al login siempre
   if (!token) {
@@ -36,7 +41,9 @@ function ProtectedRoute({ children, allowedRoles, redirectTo }) {
   // 2. Si hay roles permitidos definidos, verificar
   if (allowedRoles && !allowedRoles.includes(user?.role)) {
     // Redirección inteligente según el rol
-    const defaultRedirect = ADMIN_ROLES.includes(user?.role) ? '/admin' : '/dispositivos'
+    const defaultRedirect = ADMIN_ROLES.includes(user?.role)
+      ? '/admin'
+      : (org?.type === 'B' ? '/espacios' : '/dispositivos')
     return <Navigate to={redirectTo || defaultRedirect} replace />
   }
 
@@ -47,12 +54,33 @@ function ProtectedRoute({ children, allowedRoles, redirectTo }) {
  * Componente para rutas que SOLO pueden verse si NO estás logueado (Landing, Login).
  */
 function PublicRoute({ children }) {
-  const { token, user } = useAuthStore()
+  const { token, user, org } = useAuthStore()
 
   if (token) {
-    const dashboard = ADMIN_ROLES.includes(user?.role) ? '/admin' : '/dispositivos'
+    const dashboard = ADMIN_ROLES.includes(user?.role)
+      ? '/admin'
+      : (org?.type === 'B' ? '/espacios' : '/dispositivos')
     return <Navigate to={dashboard} replace />
   }
+  return children
+}
+
+/**
+ * Componente para switchear secciones según el tipo de organización cliente:
+ * · B (independiente)  → gestiona sus espacios (cada espacio contiene sus estaciones)
+ * · A (dependiente)    → gestiona sus estaciones directas
+ * Si alguien entra a la ruta que no le corresponde, se redirige a la suya.
+ */
+function ClientScopeRoute({ isEspacios, children }) {
+  const { token, user, org } = useAuthStore()
+
+  if (!token) return <Navigate to="/login" replace />
+  if (!['client'].includes(user?.role)) return <Navigate to="/admin" replace />
+
+  const isB = org?.type === 'B'
+  if (isEspacios && !isB) return <Navigate to="/dispositivos" replace />
+  if (!isEspacios && isB) return <Navigate to="/espacios" replace />
+
   return children
 }
 
@@ -63,6 +91,8 @@ export default function App() {
         {/* Rutas Públicas */}
         <Route path="/"      element={<PublicRoute><Landing /></PublicRoute>} />
         <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
+        <Route path="/forgot-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />
+        <Route path="/reset-password" element={<PublicRoute><ResetPassword /></PublicRoute>} />
         <Route path="/mapa"  element={<PublicRoute><PublicMap /></PublicRoute>} />
         <Route path="/reportes-globales" element={<GlobalReports />} />
         {/* --- RUTAS EXCLUSIVAS DE CLIENTES (CORREGIDAS) --- */}
@@ -75,7 +105,10 @@ export default function App() {
         
         <Route path="/devices/:id" element={<ProtectedRoute allowedRoles={['client']}><ClientDeviceDetail /></ProtectedRoute>} />
         {/* ARREGLO 3: Cambiamos /devices por /dispositivos para que encaje con tu menú lateral */}
-        <Route path="/dispositivos" element={<ProtectedRoute allowedRoles={['client']}><Devices /></ProtectedRoute>} />
+        <Route path="/dispositivos" element={<ClientScopeRoute><Devices /></ClientScopeRoute>} />
+        <Route path="/espacios" element={<ClientScopeRoute isEspacios><Spaces /></ClientScopeRoute>} />
+        <Route path="/espacios/:id" element={<ClientScopeRoute isEspacios><SpaceDetail /></ClientScopeRoute>} />
+        <Route path="/espacios/:id/aqi" element={<ClientScopeRoute isEspacios><SpaceAqi /></ClientScopeRoute>} />
         {/* <Route path="/devices"           element={<ProtectedRoute allowedRoles={['client']}><Devices /></ProtectedRoute>} /> */}
 
         <Route path="/alerts/:deviceId" element={<ProtectedRoute allowedRoles={['client']}><Alerts /></ProtectedRoute>} />

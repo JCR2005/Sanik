@@ -7,6 +7,7 @@ import 'dotenv/config'
 import dbPlugin    from './plugins/db.js'
 import redisPlugin from './plugins/redis.js'
 import mqttPlugin  from './plugins/mqtt.js'
+import realtimePlugin from './plugins/realtime.js'
 
 import authRoutes          from './routes/auth.js'
 import devicesRoutes       from './routes/devices.js'
@@ -14,6 +15,7 @@ import variablesRoutes     from './routes/variables.js'
 import dotsRoutes          from './routes/dots.js'
 import alertsRoutes        from './routes/alerts.js'
 import organizationsRoutes from './routes/organizations.js'
+import spacesRoutes        from './routes/spaces.js'
 import paymentsRoutes      from './routes/payments.js'
 import requestsRoutes      from './routes/requests.js'
 import incidentsRoutes     from './routes/incidents.js'
@@ -65,6 +67,7 @@ await app.register(websocket)
 await app.register(dbPlugin)
 await app.register(redisPlugin)
 await app.register(mqttPlugin)
+await app.register(realtimePlugin)
 
 // ── Rutas ──────────────────────────────────────
 await app.register(authRoutes,          { prefix: '/api/auth' })
@@ -73,6 +76,7 @@ await app.register(variablesRoutes,     { prefix: '/api/variables' })
 await app.register(dotsRoutes,          { prefix: '/api/dots' })
 await app.register(alertsRoutes,        { prefix: '/api/alerts' })
 await app.register(organizationsRoutes, { prefix: '/api/organizations' })
+await app.register(spacesRoutes,        { prefix: '/api/spaces' })
 await app.register(paymentsRoutes,      { prefix: '/api/payments' })
 await app.register(requestsRoutes,      { prefix: '/api/requests' })
 await app.register(incidentsRoutes,     { prefix: '/api/incidents' })
@@ -82,7 +86,28 @@ await app.register(publicRoutes,        { prefix: '/api/public' })
 // ── WebSocket tiempo real ──────────────────────
 app.get('/ws', { websocket: true }, (socket) => {
   app.log.info('Cliente WebSocket conectado')
-  socket.on('message', (msg) => socket.send(`echo: ${msg}`))
+
+  socket.on('message', (msg) => {
+    try {
+      const data = JSON.parse(msg.toString())
+
+      if (data.type === 'subscribe' && data.deviceId) {
+        app.realtime.subscribe(data.deviceId, socket)
+      } else if (data.type === 'unsubscribe' && data.deviceId) {
+        app.realtime.unsubscribe(data.deviceId, socket)
+      }
+    } catch (err) {
+      app.log.error('Mensaje WebSocket inválido:', err.message)
+    }
+  })
+
+  socket.on('close', () => {
+    app.realtime.unsubscribeAll(socket)
+  })
+
+  socket.on('error', () => {
+    app.realtime.unsubscribeAll(socket)
+  })
 })
 
 // ── Healthcheck ────────────────────────────────

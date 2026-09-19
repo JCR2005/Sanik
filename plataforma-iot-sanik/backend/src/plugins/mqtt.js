@@ -40,6 +40,14 @@ async function mqttPlugin(app) {
       for (const [variable, value] of Object.entries(payload)) {
         if (typeof value !== 'number') continue
 
+        // Registrar la variable del dispositivo (si no existe)
+        await app.db.query(
+          `INSERT INTO device_variables (device_id, variable_label)
+           VALUES ($1, $2)
+           ON CONFLICT DO NOTHING`,
+          [deviceId, variable]
+        )
+
         await app.db.query(
           'INSERT INTO dots (time, device_id, variable, value) VALUES ($1, $2, $3, $4)',
           [now, deviceId, variable, value]
@@ -52,12 +60,8 @@ async function mqttPlugin(app) {
           { EX: 86400 } // expira en 24 horas
         )
 
-        // Actualizar last_value en la tabla variables
-        await app.db.query(`
-          UPDATE variables
-          SET last_value = $1, last_time = $2
-          WHERE device_id = $3 AND label = $4
-        `, [value, now, deviceId, variable])
+        // Notificar a los clientes suscritos al WebSocket (tiempo real)
+        app.realtime.broadcast(deviceId, variable, value, now)
       }
 
       // Actualizar last_seen del dispositivo
@@ -69,7 +73,8 @@ async function mqttPlugin(app) {
       app.log.info(`📡 Datos guardados — device: ${deviceId}`)
 
     } catch (err) {
-      app.log.error('Error procesando mensaje MQTT:', err.message)
+      app.log.error(err)
+      app.log.error('Error procesando mensaje MQTT:', err?.message, '\n', err?.stack)
     }
   })
 

@@ -17,6 +17,7 @@
     "fastify": "^4.29.1",
     "fastify-plugin": "^5.1.0",
     "mqtt": "^5.15.1",
+    "nodemailer": "^10.0.10",
     "pg": "^8.21.0",
     "redis": "^4.7.1"
   }

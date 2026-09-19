@@ -6,11 +6,14 @@ export default async function devicesRoutes(app) {
   // Middleware de autenticación para todas las rutas
   app.addHook('onRequest', app.authenticate)
 
-  // ── NUEVA RUTA: Obtener el catálogo global de variables para el Modal ──
+  // ── NUEVA RUTA: Obtener el catálogo (global) de variables para el Modal ──
+  // Solo las GLOBALES: las privadas de un espacio no se asignan a estaciones
+  // ajenas (aislamiento), así que no deben aparecer aquí.
   app.get('/catalog', async (req) => {
     const { rows } = await app.db.query(
       `SELECT label, name, unit, icon, description, data_type 
        FROM variable_catalog 
+       WHERE space_id IS NULL
        ORDER BY name ASC`
     )
     return rows
@@ -38,16 +41,29 @@ export default async function devicesRoutes(app) {
 
   // ── Crear dispositivo ──────────────────────────
   app.post('/', async (req, reply) => {
-    const { label, name, lat, lng, orgId, description, icon, tags, selectedVariables } = req.body
+    const { label, name, lat, lng, orgId, description, icon, tags, selectedVariables, spaceId } = req.body
     
     const targetOrgId = (SANIK_ROLES.includes(req.user.role) && orgId)
       ? orgId
       : req.user.orgId
 
     try {
+      // Validar que el espacio (si viene) pertenezca a la organización objetivo
+      let spaceIdValue = null
+      if (spaceId) {
+        const { rows } = await app.db.query(
+          'SELECT id FROM spaces WHERE id = $1 AND org_id = $2',
+          [spaceId, targetOrgId]
+        )
+        if (!rows.length) {
+          return reply.code(400).send({ error: 'El espacio no existe o no pertenece a esta organización' })
+        }
+        spaceIdValue = spaceId
+      }
+
       const { rows: [device] } = await app.db.query(
-        `INSERT INTO devices (org_id, label, name, lat, lng, description, icon, tags)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        `INSERT INTO devices (org_id, label, name, lat, lng, description, icon, tags, space_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
          RETURNING *`,
         [
           targetOrgId, 
@@ -57,7 +73,8 @@ export default async function devicesRoutes(app) {
           lng, 
           description || null, 
           icon || 'map-pin',           
-          tags ? JSON.stringify(tags) : '[]' 
+          tags ? JSON.stringify(tags) : '[]',
+          spaceIdValue
         ]
       )
 
@@ -111,7 +128,20 @@ export default async function devicesRoutes(app) {
       ? req.query.orgId
       : req.user.orgId
     
-    const { name, label, lat, lng, status, description, icon, tags, selectedVariables } = req.body
+    const { name, label, lat, lng, status, description, icon, tags, selectedVariables, spaceId } = req.body
+    const spaceIdEnviado = Object.prototype.hasOwnProperty.call(req.body, 'spaceId')
+
+    // Validar el espacio objetivo (si lo envían) dentro de la misma organización
+    const spaceIdValue = spaceIdEnviado ? spaceId : null
+    if (spaceIdValue) {
+      const { rows } = await app.db.query(
+        'SELECT id FROM spaces WHERE id = $1 AND org_id = $2',
+        [spaceIdValue, targetOrgId]
+      )
+      if (!rows.length) {
+        return reply.code(400).send({ error: 'El espacio no existe o no pertenece a esta organización' })
+      }
+    }
 
     const { rows } = await app.db.query(
       `UPDATE devices SET
@@ -122,10 +152,11 @@ export default async function devicesRoutes(app) {
          status = COALESCE($5, status),
          description = COALESCE($6, description),
          icon = COALESCE($7, icon),
-         tags = COALESCE($8, tags)
+         tags = COALESCE($8, tags),
+         space_id = CASE WHEN $12 THEN $11 ELSE space_id END
        WHERE id = $9 AND org_id = $10
        RETURNING *`,
-      [name, label, lat, lng, status, description, icon, tags ? JSON.stringify(tags) : null, req.params.id, targetOrgId]
+      [name, label, lat, lng, status, description, icon, tags ? JSON.stringify(tags) : null, req.params.id, targetOrgId, spaceIdValue, spaceIdEnviado]
     )
 
     if (!rows.length) return reply.code(404).send({ error: 'Dispositivo no encontrado' })

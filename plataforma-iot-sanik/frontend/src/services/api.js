@@ -1,4 +1,6 @@
-const BASE = import.meta.env.VITE_API_BASE || '/api'
+const BASE =
+  import.meta.env.VITE_API_BASE ||
+  (import.meta.env.DEV ? 'http://localhost:3000/api' : '/api')
 
 function getToken() {
   return localStorage.getItem('sanik_token') || localStorage.getItem('token')
@@ -32,6 +34,9 @@ async function request(path, options = {}) {
 
 export const auth = {
   login: (email, password) => request('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
+  register: (data) => request('/auth/register', { method: 'POST', body: JSON.stringify(data) }),
+  forgotPassword: (email) => request('/auth/forgot-password', { method: 'POST', body: JSON.stringify({ email }) }),
+  resetPassword: (token, password) => request('/auth/reset-password', { method: 'POST', body: JSON.stringify({ token, password }) }),
   me: () => request('/auth/me')
 }
 
@@ -54,8 +59,9 @@ export const devices = {
 }
 
 export const variables = {
-  list: () => request('/variables/catalog'),
-  create: (data) => request('/variables/catalog', { method: 'POST', body: JSON.stringify(data) }),
+  list: (spaceId) => request(`/variables/catalog${spaceId ? `?spaceId=${spaceId}` : ''}`),
+  create: (data) => request('/variables/catalog', { method: 'POST', body: JSON.stringify(data),  }),
+  update: (label, data) => request(`/variables/catalog/${label}`, { method: 'PUT', body: JSON.stringify(data) }),
   delete: (label) => request(`/variables/catalog/${label}`, { method: 'DELETE' }),
   getRanges: (label, orgId) => request(`/variables/ranges/${label}${orgId ? `?orgId=${orgId}` : ''}`)
 }
@@ -84,8 +90,22 @@ export const organizations = {
   create: (data) => request('/organizations', { method: 'POST', body: JSON.stringify(data) }),
   update: (id, data) => request(`/organizations/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   updateStatus: (id, status) => request(`/organizations/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
+  setPaymentExempt: (id, exempt) => request(`/organizations/${id}`, { method: 'PUT', body: JSON.stringify({ paymentExempt: exempt }) }),
+  setBCategory: (id, bCategory) => request(`/organizations/${id}`, { method: 'PUT', body: JSON.stringify({ bCategory }) }),
   revealCredentials: (id, adminPassword) => request(`/organizations/${id}/reveal-credentials`, { method: 'POST', body: JSON.stringify({ adminPassword }) }),
   resetPassword: (id) => request(`/organizations/${id}/reset-client-password`, { method: 'POST', body: JSON.stringify({}) })
+}
+
+export const spaces = {
+  list: () => request('/spaces'),
+  create: (data) => request('/spaces', { method: 'POST', body: JSON.stringify(data) }),
+  get: (id) => request(`/spaces/${id}`),
+  update: (id, data) => request(`/spaces/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  devices: (id) => request(`/spaces/${id}/devices`),
+  config: (id) => request(`/spaces/${id}/aqi`),
+  saveConfig: (id, data) => request(`/spaces/${id}/aqi`, { method: 'PUT', body: JSON.stringify(data) }),
+  calculate: (id, values) => request(`/spaces/${id}/aqi/calculate`, { method: 'POST', body: JSON.stringify({ values }) }),
+  delete: (id) => request(`/spaces/${id}`, { method: 'DELETE' })
 }
 
 export const reports = {

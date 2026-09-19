@@ -1,21 +1,39 @@
 import bcrypt from 'bcrypt'
+import { seedAirTemplate } from '../utils/aqi.js'
 
 const SANIK_ROLES = ['superadmin', 'admin', 'worker']
+
+// Solo el equipo interno de Sanik puede administrar organizaciones.
+// Evita que un cliente tipo B (rol 'admin' en su propia org) toque al listado
+// o modifique su propia categoría / exoneración de pago.
+async function isSanikTeam(app, userId) {
+  if (!userId) return false
+  const { rows: [u] } = await app.db.query(
+    `SELECT u.role, o.slug FROM users u LEFT JOIN organizations o ON o.id = u.org_id WHERE u.id = $1`,
+    [userId]
+  )
+  return !!u && SANIK_ROLES.includes(u.role) && (u.slug === 'sanik-internal' || u.slug === null)
+}
 
 export default async function (app) {
 
   // ── 1. LISTAR TODAS LAS ORGANIZACIONES ──
   app.get('/', { onRequest: [app.authenticate] }, async (req, reply) => {
+    if (!(await isSanikTeam(app, req.user?.userId || req.user?.id)))
+      return reply.code(403).send({ error: 'Sin permisos' })
     const { rows } = await app.db.query(`
       SELECT 
         o.id, o.name, o.slug, o.location, o.plan, o.status, o.paid_until, 
         o.nit, o.contact_name, o.notes, o.phone,
+        o.type, o.category, o.b_category, o.payment_exempt, o.account_type,
         MAX(u.email) as email,
         COUNT(DISTINCT d.id)::int as device_count,
-        COUNT(DISTINCT CASE WHEN d.status = 'active' THEN d.id END)::int as active_devices
+        COUNT(DISTINCT CASE WHEN d.status = 'active' THEN d.id END)::int as active_devices,
+        COUNT(DISTINCT s.id)::int as space_count
       FROM organizations o
       LEFT JOIN users u ON u.org_id = o.id AND u.role = 'client'
       LEFT JOIN devices d ON d.org_id = o.id
+      LEFT JOIN spaces s ON s.org_id = o.id
       WHERE o.slug != 'sanik-internal'
       GROUP BY o.id
       ORDER BY o.name ASC
@@ -25,6 +43,8 @@ export default async function (app) {
 
   // ── 2. OBTENER UNA ORGANIZACIÓN ──
   app.get('/:id', { onRequest: [app.authenticate] }, async (req, reply) => {
+    if (!(await isSanikTeam(app, req.user?.userId || req.user?.id)))
+      return reply.code(403).send({ error: 'Sin permisos' })
     const { rows: [org] } = await app.db.query(`
       SELECT o.*, u.email
       FROM organizations o
@@ -38,6 +58,8 @@ export default async function (app) {
 
   // ── 3. CREAR ORGANIZACIÓN ──
   app.post('/', { onRequest: [app.authenticate] }, async (req, reply) => {
+    if (!(await isSanikTeam(app, req.user?.userId || req.user?.id)))
+      return reply.code(403).send({ error: 'Sin permisos' })
     const body = req.body || {}
     const name        = body.name || body.organizationName || body.orgName
     const email       = body.email || body.clientEmail
@@ -47,6 +69,15 @@ export default async function (app) {
     const contactName = body.contactName || body.contact_name || ''
     const nit         = body.nit || ''
     const notes       = body.notes || ''
+
+    // Tipo de cliente: 'B' = independiente (self-service por espacios),
+    // 'A' = dependiente (gestionado por Sanik, estaciones directas)
+    const tipo = body.type === 'B' ? 'B' : 'A'
+    const category = body.category === 'independiente'
+      ? 'independiente'
+      : (tipo === 'B' ? 'independiente' : 'dependiente')
+    const bCategory = body.bCategory || 'estandar'
+    const accountType = body.accountType === 'individual' ? 'individual' : 'organizacion'
 
     if (!name) {
       return reply.code(400).send({ error: 'El nombre de la organización es obligatorio' })
@@ -86,10 +117,10 @@ export default async function (app) {
 
       // Crear organización
       const { rows: [org] } = await client.query(`
-        INSERT INTO organizations (name, slug, location, plan, status, nit, contact_name, notes, phone)
-        VALUES ($1, $2, $3, $4, 'active', $5, $6, $7, $8)
+        INSERT INTO organizations (name, slug, location, plan, status, nit, contact_name, notes, phone, type, category, b_category, account_type)
+        VALUES ($1, $2, $3, $4, 'active', $5, $6, $7, $8, $9, $10, $11, $12)
         RETURNING *
-      `, [name, slug, location, plan, nit, contactName, notes, phone])
+      `, [name, slug, location, plan, nit, contactName, notes, phone, tipo, category, bCategory, accountType])
 
       // Generar contraseña automática
       const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
@@ -108,6 +139,18 @@ export default async function (app) {
         VALUES ($1, $2, $3, 'client', $4, 'active')
       `, [clientEmail, passwordHash, autoPassword, org.id])
 
+      // Cliente independiente (B): crear su espacio base "Aire" para que
+      // tenga de dónde partir (gestión por espacios + dispositivos dentro).
+      if (tipo === 'B') {
+        const { rows: [space] } = await client.query(
+          `INSERT INTO spaces (org_id, name, slug, type, hidden)
+           VALUES ($1, 'Aire', 'aire', 'aire', FALSE)
+           RETURNING id`,
+          [org.id]
+        )
+        await seedAirTemplate(client, space.id)
+      }
+
       await client.query('COMMIT')
 
       org.email = clientEmail
@@ -125,7 +168,9 @@ export default async function (app) {
 
   // ── 4. ACTUALIZAR ORGANIZACIÓN ──
   app.put('/:id', { onRequest: [app.authenticate] }, async (req, reply) => {
-    const { name, location, plan, status, paidUntil, nit, contactName, notes, phone, email } = req.body
+    if (!(await isSanikTeam(app, req.user?.userId || req.user?.id)))
+      return reply.code(403).send({ error: 'Sin permisos' })
+    const { name, location, plan, status, paidUntil, nit, contactName, notes, phone, email, category, bCategory, paymentExempt, accountType } = req.body
 
     const client = await app.db.connect()
     try {
@@ -133,18 +178,22 @@ export default async function (app) {
 
       const { rows: [updatedOrg] } = await client.query(`
         UPDATE organizations SET
-          name         = COALESCE($1, name),
-          location     = COALESCE($2, location),
-          plan         = COALESCE($3, plan),
-          status       = COALESCE($4, status),
-          paid_until   = COALESCE($5, paid_until),
-          nit          = COALESCE($6, nit),
-          contact_name = COALESCE($7, contact_name),
-          notes        = COALESCE($8, notes),
-          phone        = COALESCE($9, phone)
-        WHERE id = $10
+          name           = COALESCE($1, name),
+          location       = COALESCE($2, location),
+          plan           = COALESCE($3, plan),
+          status         = COALESCE($4, status),
+          paid_until     = COALESCE($5, paid_until),
+          nit            = COALESCE($6, nit),
+          contact_name   = COALESCE($7, contact_name),
+          notes          = COALESCE($8, notes),
+          phone          = COALESCE($9, phone),
+          category       = COALESCE($10, category),
+          b_category     = COALESCE($11, b_category),
+          payment_exempt = COALESCE($12, payment_exempt),
+          account_type   = COALESCE($13, account_type)
+        WHERE id = $14
         RETURNING *
-      `, [name, location, plan, status, paidUntil, nit, contactName, notes, phone, req.params.id])
+      `, [name, location, plan, status, paidUntil, nit, contactName, notes, phone, category, bCategory, paymentExempt, accountType, req.params.id])
 
       if (!updatedOrg) {
         await client.query('ROLLBACK')
@@ -182,6 +231,8 @@ export default async function (app) {
 
   // ── 5. SUSPENDER / ACTIVAR ──
   app.patch('/:id/status', { onRequest: [app.authenticate] }, async (req, reply) => {
+    if (!(await isSanikTeam(app, req.user?.userId || req.user?.id)))
+      return reply.code(403).send({ error: 'Sin permisos' })
     const { status } = req.body
     const { rows: [org] } = await app.db.query(
       'UPDATE organizations SET status = $1 WHERE id = $2 RETURNING id, name, status',

@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import ClienteLayout from "../components/sanik/ClienteLayout"
 import { devices as devicesApi } from '../services/api'
+import { useWebSocket } from '../hooks/useWebSocket'
 import { Search, MapPin, Eye, Wifi, WifiOff, Server, ArrowRight, Clock } from 'lucide-react'
 
 // ─── Helpers compartidos ────────────────────────────────────────────────────
@@ -201,6 +202,24 @@ export default function ClientDevices() {
     })
   }, [])
 
+  // ── Tiempo real por WebSocket ──
+  const deviceIds = devices.map(d => d.id)
+  const { lastValues } = useWebSocket(deviceIds)
+
+  const wsRefreshRef = useRef(null)
+  useEffect(() => {
+    if (!Object.keys(lastValues).length) return
+    clearTimeout(wsRefreshRef.current)
+    wsRefreshRef.current = setTimeout(() => {
+      if (!devices.length) return
+      devices.forEach(d => {
+        devicesApi.aqi(d.id).then(res => {
+          if (res) setAqis(prev => ({ ...prev, [d.id]: res }))
+        }).catch(() => {})
+      })
+    }, 800)
+  }, [lastValues])
+
   // Carga AQI por cada dispositivo
   useEffect(() => {
     if (devices.length > 0) {
@@ -231,10 +250,7 @@ export default function ClientDevices() {
 
   return (
     <ClienteLayout>
-      <div
-        className="min-h-full px-4 py-6 md:px-8 md:py-10"
-        style={{ backgroundImage: 'radial-gradient(circle at 50% -20%, rgba(103,183,232,0.15) 0%, rgba(103,183,232,0.04) 30%, transparent 70%)' }}
-      >
+      <div className="min-h-full px-4 py-6 md:px-8 md:py-10 page-bg">
 
         {/* ── Encabezado ── */}
         <div className="mb-6 md:mb-8 flex flex-col sm:flex-row sm:items-end justify-between gap-4">

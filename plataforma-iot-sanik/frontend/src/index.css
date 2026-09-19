@@ -88,3 +88,9 @@ body {
     font-family: 'Syne', sans-serif;
   }
 }
+
+/* ── Fondo de las páginas: textura nítida (sin difuminado) ── */
+.page-bg {
+  background-image: radial-gradient(rgba(103, 183, 232, 0.15) 1px, transparent 1px);
+  background-size: 22px 22px;
+}

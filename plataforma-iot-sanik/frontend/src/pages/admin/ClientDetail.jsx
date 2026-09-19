@@ -537,7 +537,7 @@ export default function AdminClientDetail() {
         />
       )}
 
-      <div className="min-h-full py-4 lg:py-10" style={{ backgroundImage: 'radial-gradient(circle at 50% -20%, rgba(103,183,232,0.05) 0%, transparent 50%)' }}>
+      <div className="min-h-full py-4 lg:py-10 page-bg">
         
         <button onClick={() => navigate('/admin/clientes')} className="flex items-center gap-2 text-sm font-semibold mb-6 transition-colors hover:opacity-80 px-4 lg:px-0" style={{ color: 'var(--text2)' }}>
           <ArrowLeft size={16} /> Volver a clientes

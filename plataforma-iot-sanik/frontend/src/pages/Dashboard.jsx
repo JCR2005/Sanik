@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import ClienteLayout from '../components/sanik/ClienteLayout'
 import { devices as devicesApi } from '../services/api'
 import { Activity, Cpu, AlertTriangle, MapPin, Navigation } from 'lucide-react'
 import useAuthStore from '../store/auth'
+import { useWebSocket } from '../hooks/useWebSocket'
 
 // Importes para el Mapa
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
@@ -37,6 +38,24 @@ export default function ClientDashboard() {
   useEffect(() => {
     devicesApi.list().then(setDevices).finally(() => setLoading(false))
   }, [])
+
+  // ── Tiempo real por WebSocket ──
+  const deviceIds = devices.map(d => d.id)
+  const { lastValues } = useWebSocket(deviceIds)
+
+  const wsRefreshRef = useRef(null)
+  useEffect(() => {
+    if (!Object.keys(lastValues).length) return
+    clearTimeout(wsRefreshRef.current)
+    wsRefreshRef.current = setTimeout(() => {
+      if (!devices.length) return
+      devices.forEach(d => {
+        devicesApi.aqi(d.id).then(res => {
+          if (res) setAqis(prev => ({ ...prev, [d.id]: res }))
+        }).catch(() => {})
+      })
+    }, 800)
+  }, [lastValues])
 
   // Efecto para consultar el AQI de cada dispositivo
   useEffect(() => {
@@ -109,10 +128,7 @@ export default function ClientDashboard() {
   return (
     <ClienteLayout>
       <div 
-        className="min-h-full px-6 py-6 md:px-10 md:py-10"
-        style={{ 
-          backgroundImage: 'radial-gradient(circle at 50% -20%, rgba(103,183,232,0.18) 0%, rgba(103,183,232,0.05) 30%, transparent 70%)'
-        }}
+        className="min-h-full px-6 py-6 md:px-10 md:py-10 page-bg"
       >
         <style>{pulseStyle}</style>
         {offlineCount > 0 && (
