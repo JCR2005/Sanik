@@ -7,7 +7,7 @@
 ## Levantar todo con un comando
 
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
 Eso levanta los 5 servicios:
@@ -18,7 +18,7 @@ Eso levanta los 5 servicios:
 | Backend API   | http://localhost:3000               |
 | MQTT          | mqtt://localhost:1883               |
 | EMQX Panel    | http://localhost:18083              |
-| TimescaleDB   | localhost:5432                      |
+| TimescaleDB   | localhost:5433                      |
 | Redis         | localhost:6379                      |
 
 ## Credenciales por defecto
@@ -48,19 +48,19 @@ plataforma-iot/
 
 ```bash
 # Ver logs de todos los servicios
-docker-compose logs -f
+docker compose logs -f
 
 # Ver logs solo del backend
-docker-compose logs -f backend
+docker compose logs -f backend
 
 # Reiniciar un servicio
-docker-compose restart backend
+docker compose restart backend
 
 # Apagar todo
-docker-compose down
+docker compose down
 
 # Apagar todo y borrar datos
-docker-compose down -v
+docker compose down -v
 ```
 
 ## Configuración del ESP32
