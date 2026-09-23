@@ -79,6 +79,7 @@ export const dots = {
 
 export const alerts = {
   list: (deviceId) => request(`/alerts/${deviceId}`),
+  logs: (deviceId) => request(`/alerts/${deviceId}/logs`),
   create: (data) => request('/alerts', { method: 'POST', body: JSON.stringify(data) }),
   toggle: (id, active) => request(`/alerts/${id}`, { method: 'PATCH', body: JSON.stringify({ active }) }),
   delete: (id) => request(`/alerts/${id}`, { method: 'DELETE' })

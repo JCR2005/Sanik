@@ -1,5 +1,7 @@
 import fp from 'fastify-plugin'
 import mqtt from 'mqtt'
+import { evaluateDeviceAlerts } from '../utils/alerting.js'
+import { getDeviceVariableScope, isLabelAllowed } from '../utils/deviceScope.js'
 
 async function mqttPlugin(app) {
   const client = mqtt.connect(`mqtt://${process.env.MQTT_HOST || 'localhost'}:${process.env.MQTT_PORT || 1883}`)
@@ -36,9 +38,17 @@ async function mqttPlugin(app) {
       const deviceId = rows[0].id
       const now = new Date()
 
+      // Alcance de variables del dispositivo (orgs tipo B: solo las de su espacio)
+      const scope = await getDeviceVariableScope(app, deviceId)
+
       // Guardar cada variable en TimescaleDB
       for (const [variable, value] of Object.entries(payload)) {
         if (typeof value !== 'number') continue
+
+        if (!isLabelAllowed(scope, variable)) {
+          app.log.warn(`Variable "${variable}" no pertenece al espacio — ignorada (device ${deviceId})`)
+          continue
+        }
 
         // Registrar la variable del dispositivo (si no existe)
         await app.db.query(
@@ -69,6 +79,9 @@ async function mqttPlugin(app) {
         'UPDATE devices SET last_seen = $1 WHERE id = $2',
         [now, deviceId]
       )
+
+      // Evaluar alertas activas de la estación
+      await evaluateDeviceAlerts(app, deviceId)
 
       app.log.info(`📡 Datos guardados — device: ${deviceId}`)
 

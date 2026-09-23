@@ -111,6 +111,7 @@ export default function App() {
         <Route path="/espacios/:id/aqi" element={<ClientScopeRoute isEspacios><SpaceAqi /></ClientScopeRoute>} />
         {/* <Route path="/devices"           element={<ProtectedRoute allowedRoles={['client']}><Devices /></ProtectedRoute>} /> */}
 
+        <Route path="/alerts" element={<ProtectedRoute allowedRoles={['client']}><Alerts /></ProtectedRoute>} />
         <Route path="/alerts/:deviceId" element={<ProtectedRoute allowedRoles={['client']}><Alerts /></ProtectedRoute>} />
         <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
 

@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import ClienteLayout from '../components/sanik/ClienteLayout'
-import { devices as devicesApi, dots as dotsApi } from '../services/api'
+import { devices as devicesApi, dots as dotsApi, spaces as spacesApi } from '../services/api'
 import { useWebSocket } from '../hooks/useWebSocket'
 import MapPicker from '../components/MapPicker'
 
@@ -10,7 +10,7 @@ import {
   ArrowLeft, Wifi, WifiOff, MapPin, Bell, Tag, Info,
   Thermometer, Droplets, Wind, Sun, Cloud, Cpu, Gauge, 
   Battery, Zap, Factory, Waves, Flame, Trees, Shield, 
-  Activity, CloudLightning, Clock, Leaf, Eye, EyeOff
+  Activity, CloudLightning, Clock, Leaf, Eye, EyeOff, SlidersHorizontal, ChevronDown
 } from 'lucide-react'
 
 const RANGES = ['1h', '6h', '24h', '7d', '30d']
@@ -56,6 +56,10 @@ export default function ClientDeviceDetail() {
   
   const [aqiData, setAqiData] = useState({ aqi: null, category: 'Sin Datos', color: '#9CA3AF' })
   const [activeView, setActiveView] = useState('variables') 
+  const [spaceAqiConfig, setSpaceAqiConfig] = useState(null)
+  const [showStationVarsModal, setShowStationVarsModal] = useState(false)
+  const [stationVarsDraft, setStationVarsDraft] = useState([])
+  const [savingStationVars, setSavingStationVars] = useState(false) 
 
   const getAqiColor = (category) => {
     if (!category) return '#9CA3AF'
@@ -100,8 +104,17 @@ export default function ClientDeviceDetail() {
           setAqiData({
             aqi: aqiRes.aqi,
             category: aqiRes.category,
-            color: getAqiColor(aqiRes.category)
+            color: getAqiColor(aqiRes.category),
+            categories: aqiRes.categories || []
           })
+        }
+
+        // Si la estación pertenece a un espacio, cargar config AQI del espacio
+        if (dev?.space_id) {
+          try {
+            const cfg = await spacesApi.config(dev.space_id)
+            setSpaceAqiConfig(cfg.aqiConfig)
+          } catch (_) {}
         }
       } catch (err) {
         if (active) setError(err.message || 'No se pudo cargar la estación')
@@ -127,7 +140,8 @@ export default function ClientDeviceDetail() {
           setAqiData({
             aqi: aqiRes.aqi,
             category: aqiRes.category,
-            color: getAqiColor(aqiRes.category)
+            color: getAqiColor(aqiRes.category),
+            categories: aqiRes.categories || []
           })
         }
       }).catch(() => {})
@@ -160,7 +174,8 @@ export default function ClientDeviceDetail() {
           setAqiData({
             aqi: aqiRes.aqi,
             category: aqiRes.category,
-            color: getAqiColor(aqiRes.category)
+            color: getAqiColor(aqiRes.category),
+            categories: aqiRes.categories || []
           })
         }
       }).catch(() => {})
@@ -227,6 +242,32 @@ export default function ClientDeviceDetail() {
 
   const scrollToDetails = () => {
     document.getElementById('detalles-view')?.scrollIntoView({ behavior: 'smooth' })
+  }
+
+  const openStationVarsModal = () => {
+    // Inicializar con las variables actuales de la estación
+    const currentLabels = variables.map(v => v.label)
+    setStationVarsDraft(currentLabels)
+    setShowStationVarsModal(true)
+  }
+
+  const toggleStationVarDraft = (label) => {
+    setStationVarsDraft(prev => prev.includes(label) ? prev.filter(x => x !== label) : [...prev, label])
+  }
+
+  const saveStationVarsModal = async () => {
+    setSavingStationVars(true)
+    try {
+      await devicesApi.update(deviceId, { selectedVariables: stationVarsDraft, spaceId: device?.space_id })
+      setShowStationVarsModal(false)
+      // Recargar variables de la estación
+      const vars = await devicesApi.variables(deviceId)
+      setVariables(vars || [])
+    } catch (err) {
+      console.error('No se pudo guardar variables de la estación:', err)
+    } finally {
+      setSavingStationVars(false)
+    }
   }
 
   return (
@@ -394,14 +435,38 @@ export default function ClientDeviceDetail() {
 
                       <div className="w-full max-w-[250px] relative mt-2">
                         <div className="flex w-full h-2.5 rounded-full overflow-hidden shadow-inner opacity-80">
-                          <div className="h-full w-1/5 bg-[#10B981]"></div>
-                          <div className="h-full w-1/5 bg-[#34D399]"></div>
-                          <div className="h-full w-1/5 bg-[#F59E0B]"></div>
-                          <div className="h-full w-1/5 bg-[#F97316]"></div>
-                          <div className="h-full w-1/5 bg-[#EF4444]"></div>
+                          {aqiData.categories?.length ? (
+                            aqiData.categories.map((c, i) => (
+                              <div
+                                key={i}
+                                className="h-full"
+                                style={{
+                                  width: `${((Number(c.score_hi) - Number(c.score_lo)) / 100) * 100}%`,
+                                  background: c.color
+                                }}
+                                title={`${c.name} (${c.score_lo}–${c.score_hi})`}
+                              />
+                            ))
+                          ) : (
+                            <>
+                              <div className="h-full w-1/5 bg-[#10B981]"></div>
+                              <div className="h-full w-1/5 bg-[#34D399]"></div>
+                              <div className="h-full w-1/5 bg-[#F59E0B]"></div>
+                              <div className="h-full w-1/5 bg-[#F97316]"></div>
+                              <div className="h-full w-1/5 bg-[#EF4444]"></div>
+                            </>
+                          )}
                         </div>
-                        {aqiData.aqi != null && (
-                          <div 
+                        {aqiData.aqi != null && aqiData.categories?.length && (
+                          <div
+                            className="absolute top-3.5 w-3 h-3 bg-white border border-gray-400 rounded-full shadow-md transition-all duration-700"
+                            style={{
+                              left: `calc(${Math.min(100, Math.max(0, aqiData.aqi))}% - 6px)`
+                            }}
+                          />
+                        )}
+                        {aqiData.aqi != null && !aqiData.categories?.length && (
+                          <div
                             className="absolute top-3.5 w-3 h-3 bg-white border border-gray-400 rounded-full shadow-md transition-all duration-700"
                             style={{ left: `calc(${Math.min(100, Math.max(0, aqiData.aqi))}% - 6px)` }}
                           />
@@ -429,68 +494,105 @@ export default function ClientDeviceDetail() {
                     <div className="w-full px-4 text-center animate-in fade-in duration-500 mt-2">
                       <div className="inline-block px-4 py-3 rounded-2xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10">
                         <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>
-                          {aqiData.category?.toLowerCase().includes('excelente') && 'El aire es ideal. No hay impacto en la salud respiratoria.'}
-                          {aqiData.category?.toLowerCase().includes('buena') && 'Calidad aceptable. Riesgo mínimo para grupos vulnerables.'}
-                          {aqiData.category?.toLowerCase().includes('precaución') && 'Personas con asma deben limitar el esfuerzo prolongado.'}
-                          {aqiData.category?.toLowerCase().includes('mala') && 'Riesgo respiratorio. Reducir actividades al aire libre.'}
-                          {aqiData.category?.toLowerCase().includes('peligrosa') && 'Peligro inminente. Permanecer en interiores.'}
-                          {!aqiData.category && 'Esperando datos de la estación...'}
+                          {(() => {
+                            if (!aqiData.category) return 'Esperando datos de la estación...'
+                            if (aqiData.categories?.length) {
+                              const idx = aqiData.categories.findIndex(c => aqiData.aqi != null && aqiData.aqi <= Number(c.score_hi))
+                              const i = idx === -1 ? (aqiData.categories.length - 1) : idx
+                              const phrases = aqiData.categories[i]?.phrases
+                              if (Array.isArray(phrases) && phrases.length) {
+                                // Rotación estable por tiempo (~20s)
+                                const k = Math.floor(Date.now() / 20000 + (aqiData.aqi || 0)) % phrases.length
+                                return phrases[k]
+                              }
+                            }
+                            // Fallback hardcoded
+                            const cat = aqiData.category.toLowerCase()
+                            if (cat.includes('excelente')) return 'El aire es ideal. No hay impacto en la salud respiratoria.'
+                            if (cat.includes('buena')) return 'Calidad aceptable. Riesgo mínimo para grupos vulnerables.'
+                            if (cat.includes('precaución')) return 'Personas con asma deben limitar el esfuerzo prolongado.'
+                            if (cat.includes('mala')) return 'Riesgo respiratorio. Reducir actividades al aire libre.'
+                            return 'Peligro inminente. Permanecer en interiores.'
+                          })()}
                         </p>
                       </div>
                     </div>
                   </div>
 
-                  <div className="border rounded-[3rem] p-8 flex flex-col justify-center shadow-sm min-h-[450px]" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
-                    <div className="grid grid-cols-2 gap-y-12 gap-x-4 w-full h-full items-center">
-                      
-                      <div className="text-center transition-transform duration-300 hover:scale-105">
-                        <div className="flex items-center justify-center gap-2 mb-3">
-                          <TempIcon size={24} className="text-rose-500" />
-                          <span className="text-xs font-black uppercase tracking-widest" style={{ color: 'var(--text2)' }}>Temperatura</span>
-                        </div>
-                        <div className="text-5xl xl:text-6xl font-black tracking-tighter" style={{ color: 'var(--text)' }}>
-                          {temp != null ? Number(temp).toFixed(1) : '--'}
-                          <span className="text-2xl xl:text-3xl font-medium ml-1 text-rose-500/80">°C</span>
-                        </div>
+                  {device?.space_id && variables.length > 0 ? (
+                    <div className="border rounded-[3rem] p-8 flex flex-col justify-center shadow-sm min-h-[450px]" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
+                      <div className="grid grid-cols-2 gap-6 w-full h-full items-center">
+                        {variables.slice(0, 4).map((v, i) => {
+                          const value = lastValues[v.label]
+                          const IconComponent = AVAILABLE_ICONS[v.icon?.toLowerCase()] || Activity
+                          return (
+                            <div key={v.label} className="text-center transition-transform duration-300 hover:scale-105">
+                              <div className="flex items-center justify-center gap-2 mb-3">
+                                <IconComponent size={24} className="text-[#67B7E8]" />
+                                <span className="text-xs font-black uppercase tracking-widest" style={{ color: 'var(--text2)' }}>{v.name}</span>
+                              </div>
+                              <div className="text-5xl xl:text-6xl font-black tracking-tighter" style={{ color: 'var(--text)' }}>
+                                {value != null ? Number(value).toFixed(1) : '--'}
+                                <span className="text-2xl xl:text-3xl font-medium ml-1" style={{ color: 'var(--text2)' }}>{v.unit}</span>
+                              </div>
+                            </div>
+                          )
+                        })}
                       </div>
-                      
-                      <div className="text-center transition-transform duration-300 hover:scale-105">
-                        <div className="flex items-center justify-center gap-2 mb-3">
-                          <HumIcon size={24} className="text-blue-500" />
-                          <span className="text-xs font-black uppercase tracking-widest" style={{ color: 'var(--text2)' }}>Humedad</span>
-                        </div>
-                        <div className="text-5xl xl:text-6xl font-black tracking-tighter" style={{ color: 'var(--text)' }}>
-                          {hum != null ? Number(hum).toFixed(1) : '--'}
-                          <span className="text-2xl xl:text-3xl font-medium ml-1 text-blue-500/80">%</span>
-                        </div>
-                      </div>
-
-                      <div className="col-span-2 w-full h-px max-w-[80%] mx-auto" style={{ background: 'var(--border)' }}></div>
-
-                      <div className="text-center transition-transform duration-300 hover:scale-105">
-                        <div className="flex items-center justify-center gap-2 mb-3">
-                          <Co2Icon size={24} className="text-[#8B5CF6]" />
-                          <span className="text-xs font-black uppercase tracking-widest" style={{ color: 'var(--text2)' }}>Dióxido de Carbono</span>
-                        </div>
-                        <div className="text-5xl xl:text-6xl font-black tracking-tighter" style={{ color: 'var(--text)' }}>
-                          {co2 != null ? Number(co2).toFixed(0) : '--'}
-                          <span className="text-2xl xl:text-3xl font-medium ml-1 text-[#8B5CF6]/80">ppm</span>
-                        </div>
-                      </div>
-
-                      <div className="text-center transition-transform duration-300 hover:scale-105">
-                        <div className="flex items-center justify-center gap-2 mb-3">
-                          <CoIcon size={24} className="text-orange-500" />
-                          <span className="text-xs font-black uppercase tracking-widest" style={{ color: 'var(--text2)' }}>Monóxido</span>
-                        </div>
-                        <div className="text-5xl xl:text-6xl font-black tracking-tighter" style={{ color: 'var(--text)' }}>
-                          {co != null ? Number(co).toFixed(1) : '--'}
-                          <span className="text-2xl xl:text-3xl font-medium ml-1 text-orange-500/80">ppm</span>
-                        </div>
-                      </div>
-
                     </div>
-                  </div>
+                  ) : (
+                    <div className="border rounded-[3rem] p-8 flex flex-col justify-center shadow-sm min-h-[450px]" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
+                      <div className="grid grid-cols-2 gap-y-12 gap-x-4 w-full h-full items-center">
+                        
+                        <div className="text-center transition-transform duration-300 hover:scale-105">
+                          <div className="flex items-center justify-center gap-2 mb-3">
+                            <TempIcon size={24} className="text-rose-500" />
+                            <span className="text-xs font-black uppercase tracking-widest" style={{ color: 'var(--text2)' }}>Temperatura</span>
+                          </div>
+                          <div className="text-5xl xl:text-6xl font-black tracking-tighter" style={{ color: 'var(--text)' }}>
+                            {temp != null ? Number(temp).toFixed(1) : '--'}
+                            <span className="text-2xl xl:text-3xl font-medium ml-1 text-rose-500/80">°C</span>
+                          </div>
+                        </div>
+                        
+                        <div className="text-center transition-transform duration-300 hover:scale-105">
+                          <div className="flex items-center justify-center gap-2 mb-3">
+                            <HumIcon size={24} className="text-blue-500" />
+                            <span className="text-xs font-black uppercase tracking-widest" style={{ color: 'var(--text2)' }}>Humedad</span>
+                          </div>
+                          <div className="text-5xl xl:text-6xl font-black tracking-tighter" style={{ color: 'var(--text)' }}>
+                            {hum != null ? Number(hum).toFixed(1) : '--'}
+                            <span className="text-2xl xl:text-3xl font-medium ml-1 text-blue-500/80">%</span>
+                          </div>
+                        </div>
+
+                        <div className="col-span-2 w-full h-px max-w-[80%] mx-auto" style={{ background: 'var(--border)' }}></div>
+
+                        <div className="text-center transition-transform duration-300 hover:scale-105">
+                          <div className="flex items-center justify-center gap-2 mb-3">
+                            <Co2Icon size={24} className="text-[#8B5CF6]" />
+                            <span className="text-xs font-black uppercase tracking-widest" style={{ color: 'var(--text2)' }}>Dióxido de Carbono</span>
+                          </div>
+                          <div className="text-5xl xl:text-6xl font-black tracking-tighter" style={{ color: 'var(--text)' }}>
+                            {co2 != null ? Number(co2).toFixed(0) : '--'}
+                            <span className="text-2xl xl:text-3xl font-medium ml-1 text-[#8B5CF6]/80">ppm</span>
+                          </div>
+                        </div>
+
+                        <div className="text-center transition-transform duration-300 hover:scale-105">
+                          <div className="flex items-center justify-center gap-2 mb-3">
+                            <CoIcon size={24} className="text-orange-500" />
+                            <span className="text-xs font-black uppercase tracking-widest" style={{ color: 'var(--text2)' }}>Monóxido</span>
+                          </div>
+                          <div className="text-5xl xl:text-6xl font-black tracking-tighter" style={{ color: 'var(--text)' }}>
+                            {co != null ? Number(co).toFixed(1) : '--'}
+                            <span className="text-2xl xl:text-3xl font-medium ml-1 text-orange-500/80">ppm</span>
+                          </div>
+                        </div>
+
+                      </div>
+                    </div>
+                  )}
 
                 </div>
               </div>
@@ -625,6 +727,68 @@ export default function ClientDeviceDetail() {
           </div>
         )}
       </div>
+
+      {/* Modal: Variables de la estación */}
+      {showStationVarsModal && spaceAqiConfig?.variables?.length && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+             onClick={() => setShowStationVarsModal(false)}>
+          <div className="w-full max-w-md rounded-2xl shadow-2xl animate-in zoom-in-95 duration-300"
+               style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
+               onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b" style={{ borderColor: 'var(--border)' }}>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: '#67B7E81A', color: '#67B7E8' }}>
+                  <SlidersHorizontal size={20} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black" style={{ color: 'var(--text)' }}>Variables de la estación</h3>
+                  <p className="text-sm" style={{ color: 'var(--text2)' }}>Elige qué variables del espacio mide esta estación</p>
+                </div>
+              </div>
+              <button onClick={() => setShowStationVarsModal(false)} className="p-2 rounded-lg hover:bg-black/5" style={{ color: 'var(--text2)' }}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-4 space-y-3 max-h-[60vh] overflow-y-auto">
+              <p className="text-sm" style={{ color: 'var(--text2)' }}>Las variables marcadas participan en el AQI según la prioridad del espacio.</p>
+              <div className="space-y-2">
+                {spaceAqiConfig.variables.map((v, i) => {
+                  const isSelected = stationVarsDraft.includes(v.variable_label)
+                  return (
+                    <label key={v.variable_label} className="flex items-center justify-between p-3 rounded-xl border transition-all hover:shadow-sm" style={{ borderColor: isSelected ? '#67B7E840' : 'var(--border)', background: isSelected ? '#67B7E80A' : 'var(--bg)' }}>
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="checkbox"
+                          checked={stationVarsDraft.includes(v.variable_label)}
+                          onChange={() => toggleStationVarDraft(v.variable_label)}
+                          className="w-5 h-5 rounded border-2 transition-all" style={{ accentColor: '#67B7E8', borderColor: 'var(--border)' }}
+                        />
+                        <div className="flex items-center gap-3">
+                          <span className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black" style={{ background: '#67B7E81A', color: '#67B7E8' }}>{i + 1}</span>
+                          <div>
+                            <span className="font-semibold" style={{ color: 'var(--text)' }}>{v.variable_label}</span>
+                            <span className="text-[10px] ml-2 opacity-60" style={{ color: 'var(--text2)' }}>prioridad {v.priority}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <span className="text-[10px] px-2 py-1 rounded-full" style={{ background: isSelected ? '#67B7E81A' : 'var(--border)', color: isSelected ? '#67B7E8' : 'var(--text2)' }}>
+                        {isSelected ? 'Asignada' : 'No asignada'}
+                      </span>
+                    </label>
+                  )
+                })}
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2 p-4 border-t" style={{ borderColor: 'var(--border)' }}>
+              <button onClick={() => setShowStationVarsModal(false)} className="px-4 py-2 rounded-xl text-sm font-bold" style={{ color: 'var(--text2)' }}>Cancelar</button>
+              <button onClick={saveStationVarsModal} disabled={savingStationVars} className="px-4 py-2 rounded-xl text-sm font-bold bg-[#67B7E8] text-white disabled:opacity-50">
+                {savingStationVars ? 'Guardando...' : 'Guardar cambios'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </ClienteLayout>
   )
 }

@@ -6,7 +6,7 @@ export default async function spacesRoutes(app) {
   // ── LISTAR ESPACIOS DEL ORG DEL USUARIO ─────────────
   app.get('/', async (req) => {
     const { rows } = await app.db.query(
-      `SELECT s.id, s.name, s.slug, s.type, s.icon, s.hidden, s.description, s.created_at,
+      `SELECT s.id, s.name, s.slug, s.type, s.icon, s.color, s.hidden, s.description, s.created_at,
               COUNT(d.id)::int as device_count
        FROM spaces s
        LEFT JOIN devices d ON d.space_id = s.id
@@ -20,7 +20,7 @@ export default async function spacesRoutes(app) {
 
   // ── CREAR ESPACIO ─────────────────────────────────
   app.post('/', async (req, reply) => {
-    const { name, slug, type, icon, description } = req.body
+    const { name, slug, type, icon, description, color } = req.body
     if (!name || !slug) {
       return reply.code(400).send({ error: 'Faltan campos obligatorios (name, slug)' })
     }
@@ -30,11 +30,12 @@ export default async function spacesRoutes(app) {
       await client.query('BEGIN')
       const iconByType = { aire: 'aire', agua: 'agua', suelo: 'suelo', ruido: 'ruido' }
       const finalIcon = icon || iconByType[type] || 'otro'
+      const finalColor = /^#[0-9A-Fa-f]{6}$/.test(color || '') ? color : '#67B7E8'
       const { rows: [space] } = await client.query(
-        `INSERT INTO spaces (org_id, name, slug, type, icon, description, hidden)
-         VALUES ($1, $2, $3, $4, $5, $6, FALSE)
+        `INSERT INTO spaces (org_id, name, slug, type, icon, color, description, hidden)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, FALSE)
          RETURNING *`,
-        [req.user.orgId, name.trim(), slug.trim().toLowerCase().replace(/\s+/g, '_'), type || 'other', finalIcon, description?.trim()]
+        [req.user.orgId, name.trim(), slug.trim().toLowerCase().replace(/\s+/g, '_'), type || 'other', finalIcon, finalColor, description?.trim()]
       )
       if (space.type === 'aire')
         await seedAirTemplate(client, space.id)
@@ -67,18 +68,20 @@ export default async function spacesRoutes(app) {
     return space
   })
 
-  // ── ACTUALIZAR ESPACIO (nombre, slug, descripción, icono) ──
+  // ── ACTUALIZAR ESPACIO (nombre, slug, descripción, tipo, icono, color) ──
   app.put('/:id', async (req, reply) => {
     const space = await getOwnerSpace(req.params.id, req.user.orgId)
     if (!space) return reply.code(404).send({ error: 'Espacio no encontrado' })
 
-    const { name, slug, description, icon } = req.body || {}
+    const { name, slug, description, type, icon, color } = req.body || {}
     const set = []
     const params = []
     if (name !== undefined) { params.push(name.trim()); set.push(`name = $${params.length}`) }
     if (slug !== undefined) { params.push(slug.trim().toLowerCase().replace(/\s+/g, '_')); set.push(`slug = $${params.length}`) }
     if (description !== undefined) { params.push(description.trim()); set.push(`description = $${params.length}`) }
+    if (type !== undefined && String(type).trim() !== '') { params.push(String(type).trim()); set.push(`type = $${params.length}`) }
     if (icon !== undefined) { params.push(icon); set.push(`icon = $${params.length}`) }
+    if (color !== undefined && /^#[0-9A-Fa-f]{6}$/.test(color)) { params.push(color); set.push(`color = $${params.length}`) }
     if (set.length === 0) return space
 
     params.push(space.id)
@@ -120,7 +123,7 @@ export default async function spacesRoutes(app) {
 
   // ── GUARDAR CONFIG AQI DEL ESPACIO ────────────────
   // body: {
-  //   categories: [{ name, color, score_lo, score_hi }],
+  //   categories: [{ name, color, score_lo, score_hi, phrases?: string[] }],
   //   variables: [{ variable_label }],            // en orden de prioridad
   //   ranges:    [{ variable_label, cat_order, min_value, max_value }]
   // }
@@ -134,6 +137,31 @@ export default async function spacesRoutes(app) {
       return reply.code(400).send({ error: 'categories, variables y ranges deben ser arrays' })
     }
 
+    // Validar límites: por variable, el max debe existir y ser estrictamente creciente entre categorías
+    const byVar = {}
+    for (const r of ranges) {
+      const catOrder = Number(r.cat_order)
+      if (byVar[r.variable_label]) byVar[r.variable_label].push({ cat_order: catOrder, max: r.max_value == null ? null : Number(r.max_value) })
+      else byVar[r.variable_label] = [{ cat_order: catOrder, max: r.max_value == null ? null : Number(r.max_value) }]
+    }
+    const totalCats = categories.length
+    for (const [label, list] of Object.entries(byVar)) {
+      list.sort((a, b) => a.cat_order - b.cat_order)
+      let prevMax = null
+      let prevSet = false
+      for (const { cat_order, max } of list) {
+        if (cat_order === totalCats) continue // el último nivel queda abierto
+        if (max == null || Number.isNaN(max)) {
+          return reply.code(400).send({ error: `La variable "${label}" necesita un límite (max) en la categoría ${cat_order}` })
+        }
+        if (prevSet && max <= prevMax) {
+          return reply.code(400).send({ error: `La variable "${label}" tiene límites repetidos o no crecientes entre categorías` })
+        }
+        prevMax = max
+        prevSet = true
+      }
+    }
+
     const client = await app.db.connect()
     try {
       await client.query('BEGIN')
@@ -144,10 +172,16 @@ export default async function spacesRoutes(app) {
 
       for (let i = 0; i < categories.length; i++) {
         const c = categories[i]
+        const phrases = Array.isArray(c.phrases)
+          ? c.phrases
+              .map(p => String(p).trim())
+              .filter(p => p.length > 0)
+              .slice(0, 12)
+          : []
         await client.query(
-          `INSERT INTO space_aqi_categories (space_id, name, color, cat_order, score_lo, score_hi)
-           VALUES ($1, $2, $3, $4, $5, $6)`,
-          [space.id, c.name, c.color || '#10B981', i + 1, Number(c.score_lo ?? 0), Number(c.score_hi ?? 100)]
+          `INSERT INTO space_aqi_categories (space_id, name, color, cat_order, score_lo, score_hi, phrases)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+          [space.id, c.name, c.color || '#10B981', i + 1, Number(c.score_lo ?? 0), Number(c.score_hi ?? 100), phrases.length ? phrases : '{}']
         )
       }
 

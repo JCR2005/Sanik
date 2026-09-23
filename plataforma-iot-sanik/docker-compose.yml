@@ -80,13 +80,7 @@ services:
       # MQTT
       MQTT_HOST: emqx
       MQTT_PORT: 1883
-      # SMTP (recuperación de contraseña)
-      SMTP_HOST: ${SMTP_HOST:-}
-      SMTP_PORT: ${SMTP_PORT:-587}
-      SMTP_SECURE: ${SMTP_SECURE:-false}
-      SMTP_USER: ${SMTP_USER:-}
-      SMTP_PASS: ${SMTP_PASS:-}
-      SMTP_FROM: ${SMTP_FROM:-Sanik <no-reply@sanik.io>}
+      # SMTP (recuperación de contraseña) — se toma del backend/.env (no se inyectan vacías)
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:80}
 
       JWT_SECRET: 

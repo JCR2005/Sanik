@@ -1,5 +1,8 @@
 const SANIK_ROLES = ['superadmin', 'admin', 'worker']
 
+import { evaluateDeviceAlerts } from '../utils/alerting.js'
+import { getDeviceVariableScope, isLabelAllowed } from '../utils/deviceScope.js'
+
 export default async function dotsRoutes(app) {
 
   // Proteger solo las rutas GET (POST debe ser público para Postman/ESP32)
@@ -197,10 +200,18 @@ export default async function dotsRoutes(app) {
     const now = new Date()
     let guardados = 0
 
+    // Alcance de variables del dispositivo (orgs tipo B: solo las de su espacio)
+    const scope = await getDeviceVariableScope(app, deviceId)
+
     for (const [rawVariable, rawValue] of Object.entries(payload)) {
       const variable = String(rawVariable).toLowerCase()
       const value = Number(rawValue) 
       if (isNaN(value)) continue     
+
+      if (!isLabelAllowed(scope, variable)) {
+        req.log.warn(`Variable "${variable}" no pertenece al espacio — ignorada (device ${deviceId})`)
+        continue
+      }     
 
       await app.db.query(
         `INSERT INTO device_variables (device_id, variable_label)
@@ -231,6 +242,9 @@ export default async function dotsRoutes(app) {
       'UPDATE devices SET last_seen = $1 WHERE id = $2',
       [now, deviceId]
     )
+
+    // Evaluar alertas activas de la estación
+    await evaluateDeviceAlerts(app, deviceId)
 
     return reply.code(201).send({ message: 'Datos guardados', count: guardados })
   })

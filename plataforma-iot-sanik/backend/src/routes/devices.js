@@ -1,4 +1,5 @@
 import crypto from 'crypto'
+import { getDeviceAqi } from '../utils/aqi.js'
 const SANIK_ROLES = ['superadmin', 'admin', 'worker']
 
 export default async function devicesRoutes(app) {
@@ -26,13 +27,15 @@ export default async function devicesRoutes(app) {
       : req.user.orgId
     const { rows } = await app.db.query(
       `SELECT d.*,
+              s.name AS space_name,
               COUNT(dv.variable_label) as variable_count,
               CASE WHEN d.last_seen > NOW() - INTERVAL '5 minutes'
                    THEN 'online' ELSE 'offline' END as status
        FROM devices d
+       LEFT JOIN spaces s ON s.id = d.space_id
        LEFT JOIN device_variables dv ON dv.device_id = d.id
        WHERE d.org_id = $1
-       GROUP BY d.id
+       GROUP BY d.id, s.name
        ORDER BY d.created_at DESC`,
       [targetOrgId]
     )
@@ -59,6 +62,19 @@ export default async function devicesRoutes(app) {
           return reply.code(400).send({ error: 'El espacio no existe o no pertenece a esta organización' })
         }
         spaceIdValue = spaceId
+      }
+
+      // Solo variables PRIVADAS del espacio (aislamiento orgs tipo B)
+      if (spaceIdValue && Array.isArray(selectedVariables) && selectedVariables.length) {
+        const { rows: spaceVars } = await app.db.query(
+          'SELECT label FROM variable_catalog WHERE space_id = $1',
+          [spaceIdValue]
+        )
+        const allowed = new Set(spaceVars.map(r => r.label))
+        const bad = selectedVariables.filter(l => !allowed.has(l))
+        if (bad.length) {
+          return reply.code(400).send({ error: `Las variables ${bad.join(', ')} no pertenecen a este espacio` })
+        }
       }
 
       const { rows: [device] } = await app.db.query(
@@ -111,9 +127,11 @@ export default async function devicesRoutes(app) {
       : req.user.orgId
     const { rows } = await app.db.query(
       `SELECT d.*,
+              o.type AS org_type,
               CASE WHEN d.last_seen > NOW() - INTERVAL '5 minutes'
                    THEN 'online' ELSE 'offline' END as status
        FROM devices d
+       LEFT JOIN organizations o ON o.id = d.org_id
        WHERE d.id = $1 AND d.org_id = $2`,
       [req.params.id, targetOrgId]
     )
@@ -128,8 +146,10 @@ export default async function devicesRoutes(app) {
       ? req.query.orgId
       : req.user.orgId
     
-    const { name, label, lat, lng, status, description, icon, tags, selectedVariables, spaceId } = req.body
+    const { name, label, lat, lng, status, description, icon, tags, selectedVariables, spaceId, displayVariables, publicMap } = req.body
     const spaceIdEnviado = Object.prototype.hasOwnProperty.call(req.body, 'spaceId')
+    const displayVarsEnviado = Object.prototype.hasOwnProperty.call(req.body, 'displayVariables')
+    const publicMapEnviado = Object.prototype.hasOwnProperty.call(req.body, 'publicMap')
 
     // Validar el espacio objetivo (si lo envían) dentro de la misma organización
     const spaceIdValue = spaceIdEnviado ? spaceId : null
@@ -143,6 +163,45 @@ export default async function devicesRoutes(app) {
       }
     }
 
+    // Solo variables PRIVADAS del espacio (aislamiento orgs tipo B:
+    // el dispositivo sigue en su espacio aunque no envíen spaceId)
+    const { rows: [current] } = await app.db.query(
+      `SELECT d.space_id, o.type AS org_type
+       FROM devices d
+       LEFT JOIN organizations o ON o.id = d.org_id
+       WHERE d.id = $1 AND d.org_id = $2`,
+      [req.params.id, targetOrgId]
+    )
+    if (!current) return reply.code(404).send({ error: 'Dispositivo no encontrado' })
+    const effectiveSpaceId = spaceIdValue || current.space_id
+    if (current.org_type === 'B' && effectiveSpaceId && Array.isArray(selectedVariables) && selectedVariables.length) {
+      const { rows: spaceVars } = await app.db.query(
+        'SELECT label FROM variable_catalog WHERE space_id = $1',
+        [effectiveSpaceId]
+      )
+      const allowed = new Set(spaceVars.map(r => r.label))
+      const bad = selectedVariables.filter(l => !allowed.has(l))
+      if (bad.length) {
+        return reply.code(400).send({ error: `Las variables ${bad.join(', ')} no pertenecen a este espacio` })
+      }
+    }
+
+    // public_map solo puede activarse en estaciones de un espacio de aire (no oculto) de una org independiente
+    if (publicMapEnviado && publicMap === true) {
+      const { rows: [vsp] } = effectiveSpaceId
+        ? await app.db.query(
+            `SELECT s.type, s.hidden, o.type AS org_type
+             FROM spaces s JOIN organizations o ON o.id = s.org_id
+             WHERE s.id = $1`,
+            [effectiveSpaceId]
+          )
+        : { rows: [] }
+      const canPublic = !!vsp && vsp.org_type === 'B' && vsp.type === 'aire' && !vsp.hidden
+      if (!canPublic) {
+        return reply.code(400).send({ error: 'Solo estaciones de un espacio de aire pueden aparecer en el mapa público' })
+      }
+    }
+
     const { rows } = await app.db.query(
       `UPDATE devices SET
          name = COALESCE($1, name),
@@ -153,10 +212,12 @@ export default async function devicesRoutes(app) {
          description = COALESCE($6, description),
          icon = COALESCE($7, icon),
          tags = COALESCE($8, tags),
-         space_id = CASE WHEN $12 THEN $11 ELSE space_id END
+         space_id = CASE WHEN $12 THEN $11 ELSE space_id END,
+         display_variables = CASE WHEN $14 THEN $13::jsonb ELSE display_variables END,
+         public_map = CASE WHEN $15 THEN $16 ELSE public_map END
        WHERE id = $9 AND org_id = $10
        RETURNING *`,
-      [name, label, lat, lng, status, description, icon, tags ? JSON.stringify(tags) : null, req.params.id, targetOrgId, spaceIdValue, spaceIdEnviado]
+      [name, label, lat, lng, status, description, icon, tags ? JSON.stringify(tags) : null, req.params.id, targetOrgId, spaceIdValue, spaceIdEnviado, Array.isArray(displayVariables) ? JSON.stringify(displayVariables) : null, displayVarsEnviado, publicMapEnviado, publicMap === true]
     )
 
     if (!rows.length) return reply.code(404).send({ error: 'Dispositivo no encontrado' })
@@ -249,167 +310,26 @@ app.get('/:id/aqi', async (req, reply) => {
       ? req.query.orgId
       : req.user.orgId
 
-  // Verificar acceso al dispositivo
   const { rows: [device] } = await app.db.query(
-    `
-    SELECT id
-    FROM devices
-    WHERE id = $1
-      AND org_id = $2
-    `,
+    'SELECT id FROM devices WHERE id = $1 AND org_id = $2',
     [req.params.id, targetOrgId]
   )
 
   if (!device) {
-    return reply.code(403).send({
-      error: 'Sin acceso'
-    })
+    return reply.code(403).send({ error: 'Sin acceso' })
   }
 
-  // Variables consideradas para el AQI
-  const AQI_VARS = [
-    'co',
-    'co2',
-    'nh3',
-    'nox',
-    'no2',
-    'o3',
-    'so2',
-    'pm25',
-    'pm10'
-  ]
-
-  // Último dato de cada variable
-  const { rows: latestDots } = await app.db.query(
-    `
-    SELECT DISTINCT ON (variable)
-      variable,
-      value,
-      time
-    FROM dots
-    WHERE device_id = $1
-      AND variable = ANY($2)
-      AND time > NOW() - INTERVAL '1 hour'
-    ORDER BY variable, time DESC
-    `,
-    [req.params.id, AQI_VARS]
-  )
-
-  if (!latestDots.length) {
-    return {
-      aqi: null,
-      category: 'Sin datos',
-      dominantPollutant: null,
-      dominantValue: null,
-      variables: {}
-    }
-  }
-
-  const variableScores = {}
-
-  let totalScore = 0
-  let totalWeight = 0
-
-  let dominant = {
-    label: null,
-    score: -1,
-    value: null
-  }
-
-  for (const dot of latestDots) {
-
-    const { rows: [range] } = await app.db.query(
-      `
-      SELECT
-        score,
-        category,
-        weight
-      FROM air_quality_ranges
-      WHERE variable_label = $1
-        AND min_value <= $2
-        AND (
-          max_value IS NULL
-          OR max_value > $2
-        )
-      LIMIT 1
-      `,
-      [dot.variable, dot.value]
-    )
-
-    if (!range) continue
-
-    variableScores[dot.variable] = {
-      value: Number(dot.value),
-      score: Number(range.score),
-      category: range.category,
-      weight: Number(range.weight)
-    }
-
-    // Promedio ponderado
-    totalScore += Number(range.score) * Number(range.weight)
-    totalWeight += Number(range.weight)
-
-    // Contaminante dominante
-    if (Number(range.score) > dominant.score) {
-      dominant = {
-        label: dot.variable,
-        score: Number(range.score),
-        value: Number(dot.value)
-      }
-    }
-  }
-
-  // AQI ponderado
-  let weightedAQI =
-    totalWeight > 0
-      ? totalScore / totalWeight
-      : 0
-
-  // Penalización por contaminante dominante
-  const maxScore = Math.max(
-    ...Object.values(variableScores).map(v => v.score),
-    0
-  )
-
-  let aqi = Math.round(
-    weightedAQI * 0.7 +
-    maxScore * 0.3
-  )
-
-  // Limitar 0-100
-  aqi = Math.max(
-    0,
-    Math.min(100, aqi)
-  )
-
-  let category = 'Excelente'
-
-  if (aqi <= 20) {
-    category = 'Excelente'
-  } else if (aqi <= 40) {
-    category = 'Buena'
-  } else if (aqi <= 60) {
-    category = 'Precaución'
-  } else if (aqi <= 80) {
-    category = 'Mala'
-  } else {
-    category = 'Peligrosa'
-  }
+  const res = await getDeviceAqi(app, req.params.id)
 
   return {
-    aqi,
-    category,
-
-    dominantPollutant: dominant.label,
-    dominantValue: dominant.value,
-
-    variables: variableScores,
-
-    metadata: {
-      variablesUsed: Object.keys(variableScores).length,
-      weightedAverage: Math.round(weightedAQI),
-      worstScore: maxScore
-    }
+    aqi: res.aqi,
+    category: res.category,
+    dominantPollutant: res.dominant?.label ?? null,
+    dominantValue: res.dominant?.value ?? null,
+    variables: res.variables,
+    categories: res.categories ?? [],
+    metadata: res.metadata,
+    spaceId: res.spaceId ?? null
   }
 })
 }

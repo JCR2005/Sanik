@@ -13,7 +13,7 @@
 export async function getSpaceConfig(app, spaceId) {
   const [cats, vars, ranges] = await Promise.all([
     app.db.query(
-      `SELECT id, name, color, cat_order, score_lo, score_hi
+      `SELECT id, name, color, cat_order, score_lo, score_hi, phrases
        FROM space_aqi_categories
        WHERE space_id = $1
        ORDER BY cat_order ASC`,
@@ -128,7 +128,9 @@ export function computeAqi(latestValues, config) {
     aqi,
     category,
     categories: config.categories.map(c => ({
-      name: c.name, color: c.color, order: c.cat_order
+      name: c.name, color: c.color, order: c.cat_order,
+      score_lo: Number(c.score_lo), score_hi: Number(c.score_hi),
+      phrases: Array.isArray(c.phrases) ? c.phrases : []
     })),
     variableScores,
     dominant,
@@ -141,6 +143,126 @@ export function computeAqi(latestValues, config) {
 }
 
 // ─────────────────────────────────────────────
+// getDeviceAqi(app, deviceId)
+// Calcula el AQI de una estación usando la config del espacio si pertenece a
+// uno, o el motor clásico (air_quality_ranges) en caso contrario.
+// Lo usan GET /devices/:id/aqi y el motor de alertas (misma fuente de verdad).
+// Devuelve { aqi, category, dominant, variables, categories, metadata, source, spaceId }.
+// ─────────────────────────────────────────────
+const CLASSIC_AQI_VARS = ['co', 'co2', 'nh3', 'nox', 'no2', 'o3', 'so2', 'pm25', 'pm10']
+
+export async function getDeviceAqi(app, deviceId) {
+  const { rows: [device] } = await app.db.query(
+    'SELECT id, space_id FROM devices WHERE id = $1',
+    [deviceId]
+  )
+  if (!device) return null
+
+  // ── Estación dentro de un espacio: config del espacio ──
+  if (device.space_id) {
+    const config = await getSpaceConfig(app, device.space_id)
+    if (!config.categories.length || !config.variables.length) {
+      return { aqi: null, category: 'Sin datos', dominant: null, variables: {}, categories: [], metadata: null, source: 'space', spaceId: device.space_id }
+    }
+
+    const labels = config.variables.map(v => v.variable_label)
+    const { rows: latestDots } = await app.db.query(
+      `SELECT DISTINCT ON (variable) variable, value
+       FROM dots
+       WHERE device_id = $1 AND variable = ANY($2)
+         AND time > NOW() - INTERVAL '1 hour'
+       ORDER BY variable, time DESC`,
+      [deviceId, labels]
+    )
+
+    const latestValues = {}
+    for (const dot of latestDots) latestValues[dot.variable] = Number(dot.value)
+
+    const res = computeAqi(latestValues, config)
+    return {
+      aqi: res.aqi,
+      category: res.category,
+      dominant: res.dominant?.label ? res.dominant : null,
+      variables: res.variableScores,
+      categories: res.categories,
+      metadata: res.metadata,
+      source: 'space',
+      spaceId: device.space_id
+    }
+  }
+
+  // ── Motor clásico (estación sin espacio) ──
+  const { rows: latestDots } = await app.db.query(
+    `SELECT DISTINCT ON (variable) variable, value
+     FROM dots
+     WHERE device_id = $1 AND variable = ANY($2)
+       AND time > NOW() - INTERVAL '1 hour'
+     ORDER BY variable, time DESC`,
+    [deviceId, CLASSIC_AQI_VARS]
+  )
+
+  if (!latestDots.length) {
+    return { aqi: null, category: 'Sin datos', dominant: null, variables: {}, categories: [], metadata: null, source: 'classic', spaceId: null }
+  }
+
+  const variableScores = {}
+  let totalScore = 0
+  let totalWeight = 0
+  let dominant = { label: null, score: -1, value: null }
+
+  for (const dot of latestDots) {
+    const { rows: [range] } = await app.db.query(
+      `SELECT score, category, weight
+       FROM air_quality_ranges
+       WHERE variable_label = $1 AND min_value <= $2
+         AND (max_value IS NULL OR max_value > $2)
+       LIMIT 1`,
+      [dot.variable, dot.value]
+    )
+
+    if (!range) continue
+
+    variableScores[dot.variable] = {
+      value: Number(dot.value),
+      score: Number(range.score),
+      category: range.category,
+      weight: Number(range.weight)
+    }
+
+    totalScore += Number(range.score) * Number(range.weight)
+    totalWeight += Number(range.weight)
+
+    if (Number(range.score) > dominant.score) {
+      dominant = { label: dot.variable, score: Number(range.score), value: Number(dot.value) }
+    }
+  }
+
+  const weightedAQI = totalWeight > 0 ? totalScore / totalWeight : 0
+  const maxScore = Math.max(...Object.values(variableScores).map(v => v.score), 0)
+
+  let aqi = Math.round(weightedAQI * 0.7 + maxScore * 0.3)
+  aqi = Math.max(0, Math.min(100, aqi))
+
+  let category = 'Excelente'
+  if (aqi <= 20) category = 'Excelente'
+  else if (aqi <= 40) category = 'Buena'
+  else if (aqi <= 60) category = 'Precaución'
+  else if (aqi <= 80) category = 'Mala'
+  else category = 'Peligrosa'
+
+  return {
+    aqi,
+    category,
+    dominant: dominant.label ? dominant : null,
+    variables: variableScores,
+    categories: [],
+    metadata: { variablesUsed: Object.keys(variableScores).length, weightedAverage: Math.round(weightedAQI), worstScore: maxScore },
+    source: 'classic',
+    spaceId: null
+  }
+}
+
+// ─────────────────────────────────────────────
 // seedAirTemplate(client, spaceId)
 // Llena la plantilla estándar de "Aire" (5 categorías + variables
 // clásicas + rangos de la configuración real de air_quality_ranges).
@@ -149,13 +271,13 @@ export function computeAqi(latestValues, config) {
 // ─────────────────────────────────────────────
 export async function seedAirTemplate(client, spaceId) {
   await client.query(
-    `INSERT INTO space_aqi_categories (space_id, name, color, cat_order, score_lo, score_hi)
+    `INSERT INTO space_aqi_categories (space_id, name, color, cat_order, score_lo, score_hi, phrases)
      VALUES
-       ($1,'Excelente','#10B981',1,0,20),
-       ($1,'Buena','#34D399',2,21,40),
-       ($1,'Precaución','#F59E0B',3,41,60),
-       ($1,'Mala','#F97316',4,61,80),
-       ($1,'Peligrosa','#EF4444',5,81,100)`,
+       ($1,'Excelente','#10B981',1,0,20,ARRAY['El aire es ideal. No hay impacto en la salud respiratoria.']),
+       ($1,'Buena','#34D399',2,21,40,ARRAY['Calidad aceptable. Riesgo mínimo para grupos vulnerables.']),
+       ($1,'Precaución','#F59E0B',3,41,60,ARRAY['Personas con asma deben limitar el esfuerzo prolongado.']),
+       ($1,'Mala','#F97316',4,61,80,ARRAY['Riesgo respiratorio. Reducir actividades al aire libre.']),
+       ($1,'Peligrosa','#EF4444',5,81,100,ARRAY['Peligro inminente. Permanecer en interiores.'])`,
     [spaceId]
   )
 

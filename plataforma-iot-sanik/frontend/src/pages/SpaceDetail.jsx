@@ -1,22 +1,24 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import ClienteLayout from '../components/sanik/ClienteLayout'
+import EditSpaceModal from '../components/sanik/EditSpaceModal'
 import { spaces as spacesApi, variables as variablesApi, devices as devicesApi } from '../services/api'
 import {
   Plus, Trash2, Pencil, ArrowLeft, ArrowRight, Trash, RefreshCw,
   Server, Wifi, WifiOff, MapPin, Gauge, ListChecks, Layers, X, Check
 } from 'lucide-react'
-import { spaceIcon, generateLabel, TYPE_LABELS } from './spaceUtils'
+import { spaceIcon, generateLabel, TYPE_LABELS, normalizeVarName } from './spaceUtils'
+import MapPicker from '../components/MapPicker'
 
 const COLORS = { primary: '#67B7E8' }
-const INPUT = "w-full border rounded-xl px-4 py-3 text-sm outline-none transition-all duration-200 focus:ring-2 focus:ring-[#67B7E8]/20 focus:border-[#67B7E8]"
+const INPUT = (accent) => `w-full border rounded-xl px-4 py-3 text-sm outline-none transition-all duration-200 focus:ring-2 focus:ring-[${accent}]/20 focus:border-[${accent}]`
 const inputStyle = { background: 'var(--bg)', borderColor: 'var(--border)', color: 'var(--text)' }
 
 function getStatusColor(status) {
   return status === 'online' ? '#2BA8A0' : '#F59E0B'
 }
 
-function DeviceCard({ device, onDetail, onEditVariables }) {
+function DeviceCard({ device, onDetail, onEditVariables, onTogglePublic, showPublicToggle, accent }) {
   const isOnline = device.status === 'online'
   const color = getStatusColor(device.status)
   return (
@@ -55,15 +57,39 @@ function DeviceCard({ device, onDetail, onEditVariables }) {
       </div>
       <div className="flex items-center justify-between pt-3 border-t" style={{ borderColor: 'var(--border)' }}>
         <span className="text-xs" style={{ color: 'var(--text2)' }}>{device.variable_count || 0} variables</span>
-        <span className="flex items-center gap-1 text-xs font-semibold group-hover:gap-2 transition-all" style={{ color: '#67B7E8' }}>
+        <span className="flex items-center gap-1 text-xs font-semibold group-hover:gap-2 transition-all" style={{ color: accent }}>
           Ver detalles <ArrowRight size={11} />
         </span>
       </div>
+      {showPublicToggle && (
+        <div
+          className="flex items-center justify-between pt-3 mt-3 border-t"
+          style={{ borderColor: 'var(--border)' }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <span className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--text2)' }}>
+            <MapPin size={11} /> Mostrar en mapa público
+          </span>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={!!device.public_map}
+            title={device.public_map ? 'Visible en el mapa público' : 'Oculta en el mapa público'}
+            onClick={() => onTogglePublic(device, !device.public_map)}
+            className="relative w-9 h-5 rounded-full transition-colors"
+            style={{ background: device.public_map ? accent : 'var(--border)' }}
+          >
+            <span
+              className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${device.public_map ? 'left-[17px]' : 'left-0.5'}`}
+            />
+          </button>
+        </div>
+      )}
     </div>
   )
 }
 
-function AddDeviceModal({ spaceId, onClose, onAdd }) {
+function AddDeviceModal({ spaceId, onClose, onAdd, accent = COLORS.primary }) {
   const [form, setForm] = useState({ name: '', label: '', lat: '', lng: '' })
   const [catalog, setCatalog] = useState([])
   const [catalogReady, setCatalogReady] = useState(false)
@@ -79,8 +105,16 @@ function AddDeviceModal({ spaceId, onClose, onAdd }) {
       try {
         const data = await variablesApi.list(spaceId)
         const locals = data.filter(v => String(v.space_id) === String(spaceId))
-        setCatalog(locals)
-        setSelectedVariables(locals.map(v => v.label))
+        // Deduplicar por nombre normalizado: evita variables repetidas creadas por el config AQI
+        const seen = new Set()
+        const dedup = locals.filter(v => {
+          const key = normalizeVarName(v.name)
+          if (seen.has(key)) return false
+          seen.add(key)
+          return true
+        })
+        setCatalog(dedup)
+        setSelectedVariables(dedup.map(v => v.label))
         setCatalogReady(true)
       } catch { /* sin catálogo no se bloquea */ }
     }
@@ -155,39 +189,31 @@ function AddDeviceModal({ spaceId, onClose, onAdd }) {
                   value={form.name}
                   onChange={e => setForm(prev => ({ ...prev, name: e.target.value, label: generateLabel(e.target.value) }))}
                   placeholder="Ej. Sensor principal"
-                  className={INPUT}
+                  className={INPUT(accent)}
                   style={inputStyle}
                 />
+                <p className="text-xs mt-1 font-mono" style={{ color: 'var(--text2)' }}>ID: {form.label || '—'}</p>
               </div>
 
               <div>
-                <label className="text-sm font-medium block mb-2" style={{ color: 'var(--text)' }}>Identificador único (Label/ID)</label>
-                <input
-                  type="text"
-                  required
-                  value={form.label}
-                  onChange={e => setForm({ ...form, label: e.target.value })}
-                  placeholder="Ej. sensor-principal"
-                  className={INPUT}
-                  style={inputStyle}
+                <label className="text-sm font-medium block mb-2" style={{ color: 'var(--text)' }}>Ubicación en mapa <span className="opacity-60">(opcional)</span></label>
+                <MapPicker
+                  lat={form.lat ? parseFloat(form.lat) : null}
+                  lng={form.lng ? parseFloat(form.lng) : null}
+                  onChange={({ lat, lng }) => setForm(prev => ({ ...prev, lat: lat.toFixed(6), lng: lng.toFixed(6) }))}
+                  height={140}
                 />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-sm font-medium block mb-2" style={{ color: 'var(--text)' }}>Latitud</label>
-                  <input type="number" step="any" value={form.lat} onChange={e => setForm({ ...form, lat: e.target.value })} placeholder="14.8347" className={INPUT} style={inputStyle} />
-                </div>
-                <div>
-                  <label className="text-sm font-medium block mb-2" style={{ color: 'var(--text)' }}>Longitud</label>
-                  <input type="number" step="any" value={form.lng} onChange={e => setForm({ ...form, lng: e.target.value })} placeholder="-91.5181" className={INPUT} style={inputStyle} />
-                </div>
+                {form.lat && form.lng && (
+                  <p className="text-xs mt-1 font-mono" style={{ color: 'var(--text2)' }}>
+                    Coords: {form.lat}, {form.lng}
+                  </p>
+                )}
               </div>
 
               <div className="pt-2">
                 <div className="flex items-center justify-between mb-2">
                   <label className="text-sm font-bold tracking-tight" style={{ color: 'var(--text)' }}>Variables a medir</label>
-                  <button type="button" onClick={handleSelectAll} className="text-[11px] font-bold px-2 py-1 rounded bg-black/5 dark:bg-white/5 hover:opacity-80 transition-all" style={{ color: COLORS.primary }}>
+                  <button type="button" onClick={handleSelectAll} className="text-[11px] font-bold px-2 py-1 rounded bg-black/5 dark:bg-white/5 hover:opacity-80 transition-all" style={{ color: accent }}>
                     {catalog.length > 0 && (selectedVariables.length === catalog.length ? 'Desmarcar todas' : 'Seleccionar todas')}
                   </button>
                 </div>
@@ -231,7 +257,7 @@ function AddDeviceModal({ spaceId, onClose, onAdd }) {
 
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={onClose} className="flex-1 rounded-xl py-3 text-sm font-semibold hover:bg-black/5 dark:hover:bg-white/5" style={{ color: 'var(--text2)' }}>Cancelar</button>
-                <button type="submit" disabled={loading} className="flex-1 text-white py-3 rounded-xl text-sm font-bold transition-all hover:-translate-y-0.5 disabled:opacity-50" style={{ background: COLORS.primary, boxShadow: `0 4px 12px ${COLORS.primary}40` }}>{loading ? 'Creando...' : 'Crear'}</button>
+                <button type="submit" disabled={loading} className="flex-1 text-white py-3 rounded-xl text-sm font-bold transition-all hover:-translate-y-0.5 disabled:opacity-50" style={{ background: accent, boxShadow: `0 4px 12px ${accent}40` }}>{loading ? 'Creando...' : 'Crear'}</button>
               </div>
             </form>
           </>
@@ -241,7 +267,7 @@ function AddDeviceModal({ spaceId, onClose, onAdd }) {
   )
 }
 
-function EditDeviceVariablesModal({ device, spaceId, onClose, onSaved }) {
+function EditDeviceVariablesModal({ device, spaceId, onClose, onSaved, accent = COLORS.primary }) {
   const [catalog, setCatalog] = useState([])
   const [catalogReady, setCatalogReady] = useState(false)
   const [selectedVariables, setSelectedVariables] = useState([])
@@ -260,11 +286,19 @@ function EditDeviceVariablesModal({ device, spaceId, onClose, onSaved }) {
         ])
         if (!active) return
         const locals = data.filter(v => String(v.space_id) === String(spaceId))
-        setCatalog(locals)
+        // Deduplicar por nombre normalizado: evita variables repetidas creadas por el config AQI
+        const seen = new Set()
+        const dedup = locals.filter(v => {
+          const key = normalizeVarName(v.name)
+          if (seen.has(key)) return false
+          seen.add(key)
+          return true
+        })
+        setCatalog(dedup)
         // Pre-chequear las variables que la estación ya tiene asignadas
         const currentLabels = (current || []).map(v => v.label)
-        const preserved = locals.filter(v => currentLabels.includes(v.label)).map(v => v.label)
-        setSelectedVariables(preserved.length ? preserved : locals.map(v => v.label))
+        const preserved = dedup.filter(v => currentLabels.includes(v.label)).map(v => v.label)
+        setSelectedVariables(preserved.length ? preserved : dedup.map(v => v.label))
         setCatalogReady(true)
       } catch { /* sin catálogo no se bloquea */ }
     }
@@ -329,7 +363,7 @@ function EditDeviceVariablesModal({ device, spaceId, onClose, onSaved }) {
               <div className="pt-1">
                 <div className="flex items-center justify-between mb-2">
                   <label className="text-sm font-bold tracking-tight" style={{ color: 'var(--text)' }}>Variables a medir</label>
-                  <button type="button" onClick={handleSelectAll} className="text-[11px] font-bold px-2 py-1 rounded bg-black/5 dark:bg-white/5 hover:opacity-80 transition-all" style={{ color: COLORS.primary }}>
+                  <button type="button" onClick={handleSelectAll} className="text-[11px] font-bold px-2 py-1 rounded bg-black/5 dark:bg-white/5 hover:opacity-80 transition-all" style={{ color: accent }}>
                     {catalog.length > 0 && (selectedVariables.length === catalog.length ? 'Desmarcar todas' : 'Seleccionar todas')}
                   </button>
                 </div>
@@ -373,7 +407,7 @@ function EditDeviceVariablesModal({ device, spaceId, onClose, onSaved }) {
 
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={onClose} className="flex-1 rounded-xl py-3 text-sm font-semibold hover:bg-black/5 dark:hover:bg-white/5" style={{ color: 'var(--text2)' }}>Cancelar</button>
-                <button type="submit" disabled={loading} className="flex-1 text-white py-3 rounded-xl text-sm font-bold transition-all hover:-translate-y-0.5 disabled:opacity-50" style={{ background: COLORS.primary, boxShadow: `0 4px 12px ${COLORS.primary}40` }}>{loading ? 'Guardando...' : 'Guardar'}</button>
+                <button type="submit" disabled={loading} className="flex-1 text-white py-3 rounded-xl text-sm font-bold transition-all hover:-translate-y-0.5 disabled:opacity-50" style={{ background: accent, boxShadow: `0 4px 12px ${accent}40` }}>{loading ? 'Guardando...' : 'Guardar'}</button>
               </div>
             </form>
           </>
@@ -394,9 +428,7 @@ export default function SpaceDetail() {
   const [showAddDevice, setShowAddDevice] = useState(false)
   const [editDevice, setEditDevice] = useState(null)
 
-  const [editingInfo, setEditingInfo] = useState(false)
-  const [editForm, setEditForm] = useState({ name: '', description: '' })
-  const [savingInfo, setSavingInfo] = useState(false)
+  const [editModal, setEditModal] = useState(false)
   const [msg, setMsg] = useState('')
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -422,21 +454,6 @@ export default function SpaceDetail() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
 
-  const saveInfo = async (e) => {
-    e.preventDefault()
-    setSavingInfo(true); setLoadError('')
-    try {
-      const updated = await spacesApi.update(id, { name: editForm.name, description: editForm.description })
-      setSpace(prev => ({ ...prev, name: updated.name, slug: updated.slug, description: updated.description }))
-      setEditingInfo(false)
-      setMsg('Datos del espacio actualizados.')
-    } catch (err) {
-      setLoadError(err.message)
-    } finally {
-      setSavingInfo(false)
-    }
-  }
-
   const remove = async () => {
     setDeleting(true)
     try {
@@ -449,8 +466,19 @@ export default function SpaceDetail() {
     }
   }
 
+  const togglePublic = async (device, value) => {
+    try {
+      await devicesApi.update(device.id, { publicMap: value })
+      setDeviceList(prev => prev.map(d => d.id === device.id ? { ...d, public_map: value } : d))
+    } catch (err) {
+      setLoadError(err.message)
+      setTimeout(() => setLoadError(''), 4000)
+    }
+  }
+
   const onlineCount = deviceList.filter(d => d.status === 'online').length
   const aqiConfig = space?.aqiConfig || { categories: [], variables: [] }
+  const accent = (space && space.color) || COLORS.primary
 
   if (loading && !space) {
     return (
@@ -467,7 +495,7 @@ export default function SpaceDetail() {
       <ClienteLayout>
         <div className="p-8 text-center py-16">
           <p className="text-sm font-medium" style={{ color: 'var(--text2)' }}>{loadError || 'Este espacio no existe o no tenés acceso.'}</p>
-          <button onClick={() => navigate('/espacios')} className="mt-4 text-sm font-bold" style={{ color: '#67B7E8' }}>Volver a espacios</button>
+          <button onClick={() => navigate('/espacios')} className="mt-4 text-sm font-bold" style={{ color: accent }}>Volver a espacios</button>
         </div>
       </ClienteLayout>
     )
@@ -478,14 +506,26 @@ export default function SpaceDetail() {
       {showAddDevice && (
         <AddDeviceModal
           spaceId={space.id}
+          accent={accent}
           onClose={() => setShowAddDevice(false)}
           onAdd={() => { spacesApi.devices(id).then(setDeviceList).catch(() => {}) }}
+        />
+      )}
+      {editModal && (
+        <EditSpaceModal
+          space={space}
+          onClose={() => setEditModal(false)}
+          onSaved={(updated) => {
+            setSpace(prev => ({ ...prev, ...updated }))
+            setEditModal(false)
+          }}
         />
       )}
       {editDevice && (
         <EditDeviceVariablesModal
           device={editDevice}
           spaceId={space.id}
+          accent={accent}
           onClose={() => setEditDevice(null)}
           onSaved={() => { spacesApi.devices(id).then(setDeviceList).catch(() => {}) }}
         />
@@ -500,7 +540,7 @@ export default function SpaceDetail() {
         {/* ── Hero / Header del espacio ── */}
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-8 pb-8 border-b" style={{ borderColor: 'var(--border)' }}>
           <div className="flex items-start gap-4">
-            <div className="w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(103,183,232,0.15)', color: '#67B7E8' }}>
+            <div className="w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ background: accent + '26', color: accent }}>
               {spaceIcon(space.icon, space.type, 26)}
             </div>
             <div className="min-w-0">
@@ -508,51 +548,29 @@ export default function SpaceDetail() {
                 <h1 className="text-2xl lg:text-3xl font-bold tracking-tight" style={{ color: 'var(--text)', fontFamily: "'Syne', sans-serif" }}>
                   {space.name}
                 </h1>
-                <span className="text-xs font-bold px-3 py-1 rounded-lg capitalize" style={{ background: '#67B7E8' + '15', color: '#67B7E8' }}>
+                <span className="text-xs font-bold px-3 py-1 rounded-lg capitalize" style={{ background: accent + '15', color: accent }}>
                   {TYPE_LABELS[space.type] || space.type}
                 </span>
               </div>
               <p className="text-xs font-mono uppercase mt-1" style={{ color: 'var(--text2)' }}>{space.slug}</p>
 
-              {!editingInfo ? (
-                <div className="flex items-center gap-2 mt-2 flex-wrap">
-                  <p className="text-sm max-w-md" style={{ color: 'var(--text2)' }}>
-                    {space.description || 'Sin descripción. Editalo para agregarle contexto.'}
-                  </p>
-                  <button
-                    onClick={() => { setEditForm({ name: space.name, description: space.description || '' }); setEditingInfo(true); setLoadError('') }}
-                    className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
-                    title="Editar nombre y descripción"
-                  >
-                    <Pencil size={13} style={{ color: 'var(--text2)' }} />
-                  </button>
-                </div>
-              ) : (
-                <form onSubmit={saveInfo} className="mt-2 space-y-2 max-w-md">
-                  <input value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} className={INPUT} style={inputStyle} required />
-                  <textarea
-                    value={editForm.description}
-                    onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))}
-                    placeholder="Descripción del espacio (opcional)"
-                    rows={2}
-                    className={INPUT + " resize-none"}
-                    style={inputStyle}
-                  />
-                  <div className="flex gap-2">
-                    <button type="submit" disabled={savingInfo} className="text-xs font-bold text-white px-4 py-2 rounded-lg" style={{ background: '#67B7E8' }}>
-                      {savingInfo ? 'Guardando...' : 'Guardar'}
-                    </button>
-                    <button type="button" onClick={() => setEditingInfo(false)} className="text-xs font-bold px-4 py-2 rounded-lg border" style={{ borderColor: 'var(--border)', color: 'var(--text2)' }}>
-                      Cancelar
-                    </button>
-                  </div>
-                </form>
-              )}
+              <div className="flex items-center gap-2 mt-2 flex-wrap">
+                <p className="text-sm max-w-md" style={{ color: 'var(--text2)' }}>
+                  {space.description || 'Sin descripción. Editalo para agregarle contexto.'}
+                </p>
+                <button
+                  onClick={() => setEditModal(true)}
+                  className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                  title="Editar espacio (nombre, tipo, icono, color)"
+                >
+                  <Pencil size={13} style={{ color: 'var(--text2)' }} />
+                </button>
+              </div>
             </div>
           </div>
 
           <div className="flex flex-wrap gap-3">
-            <button onClick={() => navigate(`/espacios/${id}/aqi`)} className="flex items-center justify-center gap-2 text-white px-5 py-3 rounded-xl text-sm font-bold transition-all hover:-translate-y-0.5" style={{ background: '#67B7E8', boxShadow: '0 4px 12px #67B7E840' }}>
+            <button onClick={() => navigate(`/espacios/${id}/aqi`)} className="flex items-center justify-center gap-2 text-white px-5 py-3 rounded-xl text-sm font-bold transition-all hover:-translate-y-0.5" style={{ background: accent, boxShadow: `0 4px 12px ${accent}40` }}>
               <Gauge size={16} strokeWidth={2.5} /> Configurar AQI y variables
             </button>
             <button onClick={() => setShowAddDevice(true)} className="flex items-center justify-center gap-2 border rounded-xl px-4 py-3 text-sm font-bold transition-all hover:bg-black/5 dark:hover:bg-white/5" style={{ borderColor: 'var(--border)', color: 'var(--text)' }}>
@@ -589,7 +607,7 @@ export default function SpaceDetail() {
           ].map((s, i) => (
             <div key={i} className="rounded-2xl p-5 border" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(103,183,232,0.12)', color: '#67B7E8' }}>
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: accent + '1F', color: accent }}>
                   {s.icon}
                 </div>
                 <div>
@@ -605,10 +623,10 @@ export default function SpaceDetail() {
         <button
           onClick={() => navigate(`/espacios/${id}/aqi`)}
           className="w-full group mb-8 rounded-2xl border p-5 flex items-center justify-between gap-4 cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-lg"
-          style={{ background: 'linear-gradient(135deg, #67B7E818, rgba(43,168,160,0.06))', borderColor: '#67B7E838' }}
+          style={{ background: `linear-gradient(135deg, ${accent}18, rgba(43,168,160,0.06))`, borderColor: accent + '38' }}
         >
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: '#67B7E8' + '20', color: '#67B7E8' }}>
+            <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: accent + '20', color: accent }}>
               <Gauge size={22} />
             </div>
             <div className="text-left">
@@ -618,7 +636,7 @@ export default function SpaceDetail() {
               </div>
             </div>
           </div>
-          <span className="flex items-center gap-1 text-sm font-bold group-hover:gap-2 transition-all" style={{ color: '#67B7E8' }}>
+          <span className="flex items-center gap-1 text-sm font-bold group-hover:gap-2 transition-all" style={{ color: accent }}>
             Configurar <ArrowRight size={14} />
           </span>
         </button>
@@ -631,7 +649,7 @@ export default function SpaceDetail() {
               {deviceList.length === 0 ? 'Todavía no hay estaciones en este espacio.' : `${deviceList.length} estación(es) dentro de ${space.name}.`}
             </p>
           </div>
-          <button onClick={() => setShowAddDevice(true)} className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90" style={{ background: '#67B7E8' }}>
+          <button onClick={() => setShowAddDevice(true)} className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90" style={{ background: accent }}>
             <Plus size={15} /> Nueva estación
           </button>
         </div>
@@ -639,7 +657,7 @@ export default function SpaceDetail() {
         {deviceList.length > 0 ? (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {deviceList.map(d => (
-              <DeviceCard key={d.id} device={d} onDetail={devId => navigate(`/devices/${devId}`)} onEditVariables={d => setEditDevice(d)} />
+              <DeviceCard key={d.id} device={d} accent={accent} onDetail={devId => navigate(`/devices/${devId}`)} onEditVariables={d => setEditDevice(d)} showPublicToggle={(space?.type || '') === 'aire'} onTogglePublic={togglePublic} />
             ))}
           </div>
         ) : (

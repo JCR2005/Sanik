@@ -1,15 +1,81 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import ClienteLayout from '../components/sanik/ClienteLayout'
 import { spaces as spacesApi, variables as variablesApi } from '../services/api'
 import {
-  ArrowLeft, Save, ChevronUp, ChevronDown, Check, Activity, RefreshCw,
+  ArrowLeft, Save, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Check, Activity, RefreshCw,
   Gauge, Plus, X, Palette, ListChecks, SlidersHorizontal, Sparkles
 } from 'lucide-react'
-import { spaceIcon, DEFAULT_CATS, buildTram, toConfig, generateLabel } from './spaceUtils'
+import { spaceIcon, DEFAULT_CATS, DEFAULT_PHRASES, buildTram, toConfig, generateLabel, normalizeVarName } from './spaceUtils'
 
 const COLORS = { primary: '#67B7E8' }
 const MAX_CATS = 12
+
+const UNIT_PRESETS = ['°C', '%', 'ppm', 'ppb', 'µg/m³', 'mg/m³', 'hPa', 'kPa', 'mm', 'km/h', 'm/s', 'kWh', 'W/m²', 'dB', 'Lux']
+
+function UnitChips({ unit, onPick, accent }) {
+  const ref = useRef(null)
+  const [hintRight, setHintRight] = useState(true)
+  const [hintLeft, setHintLeft] = useState(false)
+
+  const update = () => {
+    const el = ref.current
+    if (!el) return
+    setHintRight(el.scrollWidth - el.scrollLeft - el.clientWidth > 8)
+    setHintLeft(el.scrollLeft > 4)
+  }
+
+  const scrollBy = (dir) => {
+    const el = ref.current
+    if (!el) return
+    el.scrollBy({ left: dir * 160, behavior: 'smooth' })
+  }
+
+  useEffect(() => { update() }, [])
+
+  return (
+    <div className="relative">
+      <div
+        ref={ref}
+        onScroll={update}
+        className="flex items-center gap-1.5 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+      >
+        {UNIT_PRESETS.map(u => (
+          <button
+            key={u}
+            onClick={() => onPick(u)}
+            className="px-2 py-1 rounded-md text-[10px] font-bold border transition-all shrink-0 hover:opacity-80"
+            style={unit === u
+              ? { background: accent + '1F', color: accent, borderColor: accent + '55' }
+              : { background: 'var(--bg)', color: 'var(--text2)', borderColor: 'var(--border)' }}
+          >
+            {u}
+          </button>
+        ))}
+      </div>
+      {hintRight && (
+        <button
+          onClick={() => scrollBy(1)}
+          title="Ver más unidades"
+          className="absolute right-0 top-0 bottom-0 w-9 flex items-center justify-end rounded-r-md transition-all hover:opacity-80"
+          style={{ background: 'linear-gradient(to left, var(--bg) 35%, transparent)' }}
+        >
+          <ChevronRight size={14} className="animate-pulse" style={{ color: 'var(--text2)' }} />
+        </button>
+      )}
+      {hintLeft && (
+        <button
+          onClick={() => scrollBy(-1)}
+          title="Ver unidades anteriores"
+          className="absolute left-0 top-0 bottom-0 w-9 flex items-center justify-start rounded-l-md transition-all hover:opacity-80"
+          style={{ background: 'linear-gradient(to right, var(--bg) 35%, transparent)' }}
+        >
+          <ChevronLeft size={14} className="animate-pulse" style={{ color: 'var(--text2)' }} />
+        </button>
+      )}
+    </div>
+  )
+}
 
 const PRESET_COLORS = [
   '#10B981', '#34D399', '#A3E635', '#FACC15', '#F59E0B', '#F97316',
@@ -38,7 +104,9 @@ export default function SpaceAqi() {
     const nc = Math.max(cfg.categories.length, 2)
     setNumCats(nc)
     setCats(cfg.categories.map((x, i) => ({
-      name: x.name, color: x.color, score_lo: x.score_lo, score_hi: x.score_hi, _id: i
+      name: x.name, color: x.color, score_lo: x.score_lo, score_hi: x.score_hi,
+      phrases: Array.isArray(x.phrases) ? x.phrases : [],
+      _id: i
     })))
 
     // Solo variables LOCALES del espacio (creadas por esta empresa).
@@ -121,8 +189,8 @@ export default function SpaceAqi() {
     if (cats.length >= MAX_CATS) return
     const n = cats.length + 1
     const next = buildTram(n).map((t, i) => ({
-      ...(cats[i] || DEFAULT_CATS[i] || { name: `Nivel ${i + 1}`, color: '#10B981' }),
-      score_lo: t.score_lo, score_hi: t.score_hi, _id: i
+      ...(cats[i] || DEFAULT_CATS[i] || { name: `Nivel ${i + 1}`, color: '#10B981', phrases: [DEFAULT_PHRASES[i] || DEFAULT_PHRASES[5]] }),
+      score_lo: t.score_lo, score_hi: t.score_hi, phrases: (cats[i]?.phrases) || DEFAULT_CATS[i]?.phrases || [DEFAULT_PHRASES[i] || DEFAULT_PHRASES[5]], _id: i
     }))
     rebuildFor(n, next)
   }
@@ -132,7 +200,7 @@ export default function SpaceAqi() {
     const n = cats.length - 1
     const next = buildTram(n).map((t, j) => {
       const c = cats[j < i ? j : j + 1]
-      return { name: c.name, color: c.color, score_lo: t.score_lo, score_hi: t.score_hi, _id: j }
+      return { name: c.name, color: c.color, score_lo: t.score_lo, score_hi: t.score_hi, phrases: c.phrases || [], _id: j }
     })
     rebuildFor(n, next)
   }
@@ -185,6 +253,26 @@ export default function SpaceAqi() {
     ))
   }
 
+  // Validación de límites: cada max debe superar al anterior (orden estrictamente creciente)
+  const rangeErrors = {}
+  for (const v of vars) {
+    let prevMax = null
+    let prevSet = false
+    for (let i = 0; i < cats.length - 1; i++) {
+      const r = ranges.find(x => x.variable_label === v.label && x.cat_order === i + 1)
+      const val = r?.max_value ?? null
+      const key = v.label + ':' + (i + 1)
+      if (val == null || Number.isNaN(Number(val))) {
+        rangeErrors[key] = 'req'
+      } else if (prevSet && Number(val) <= prevMax) {
+        rangeErrors[key] = prevMax
+      } else {
+        prevMax = Number(val)
+        prevSet = true
+      }
+    }
+  }
+
   const validate = () => {
     if (cats.length === 0) return 'Agregá al menos una categoría para que el índice tenga niveles.'
     if (vars.length === 0) return 'Agregá al menos una variable y definí sus límites para poder guardar el índice.'
@@ -200,6 +288,12 @@ export default function SpaceAqi() {
       if (seen.has(v.label)) return `Dos variables quedaron con el identificador "${v.label}". Cambiá un nombre.`
       seen.add(v.label)
     }
+    for (const v of vars) {
+      for (let i = 0; i < cats.length - 1; i++) {
+        if (!rangeErrors[v.label + ':' + (i + 1)]) continue
+        return 'Revisá los límites: cada categoría (excepto la última) necesita un max y deben ir en orden creciente sin repetirse. Las celdas con error están en rojo.'
+      }
+    }
     return null
   }
 
@@ -209,25 +303,44 @@ export default function SpaceAqi() {
     setSaving(true); setMsg(''); setSaveErr('')
     try {
       const nextCatalog = [...catalog]
+      const locals = catalog.filter(x => String(x.space_id) === String(id))
+      const remap = {}
       for (const v of vars) {
         const name = v.name.trim()
         const unit = v.unit.trim()
-        // Variable ya creada en el catálogo y sin renombrar → actualizar nombre/unidad si cambió
-        if (v.catalogLabel && v.label === v.catalogLabel) {
-          const cv = catalog.find(x => x.label === v.catalogLabel)
-          if (cv && (cv.name !== name || (cv.unit || '') !== unit)) {
-            await variablesApi.update(v.catalogLabel, { name, unit })
+        const norm = normalizeVarName(name)
+        // Reutilizar una variable local existente: por label actual, por label generado o por nombre normalizado.
+        const match = locals.find(x => x.label === v.catalogLabel)
+          || locals.find(x => x.label === generateLabel(name))
+          || locals.find(x => normalizeVarName(x.name) === norm)
+        if (match) {
+          const target = match.label
+          const changed = v.catalogLabel !== target || match.name !== name || (match.unit || '') !== unit
+          if (changed) {
+            await variablesApi.update(target, { name, unit })
           }
+          remap[v.label] = target
+          v.catalogLabel = target
           continue
         }
-        // Borrador nuevo o renombrada → crearla como variable local del espacio
+        // Renombrada sin colisión → actualizar la fila existente (el label queda como id técnico).
+        if (v.catalogLabel) {
+          await variablesApi.update(v.catalogLabel, { name, unit })
+          remap[v.label] = v.catalogLabel
+          continue
+        }
+        // Variable nueva → crearla como variable local del espacio
         const created = await variablesApi.create({ name, unit, space_id: id })
         nextCatalog.push(created)
+        remap[v.label] = created.label
         v.catalogLabel = created.label
       }
       setCatalog(nextCatalog)
 
-      const res = await spacesApi.saveConfig(id, toConfig(cats, vars, ranges))
+      // Aplicar el label canónico (reutilizado/renombrado) a variables y rangos antes de guardar
+      const configVars = vars.map(v => ({ ...v, label: remap[v.label] || v.label }))
+      const configRanges = ranges.map(r => ({ ...r, variable_label: remap[r.variable_label] || r.variable_label }))
+      const res = await spacesApi.saveConfig(id, toConfig(cats, configVars, configRanges))
       setSpace(res)
       setMsg('Configuración guardada correctamente.')
     } catch (e) {
@@ -242,16 +355,23 @@ export default function SpaceAqi() {
     vars: vars.length > 0,
     limits: vars.length > 0 && cats.length > 0 && vars.every(v => {
       for (let i = 0; i < cats.length - 1; i++) {
-        const r = ranges.find(x => x.variable_label === v.label && x.cat_order === i + 1)
-        if (!r || r.max_value == null) return false
+        if (rangeErrors[v.label + ':' + (i + 1)]) return false
       }
       return true
     })
   }
 
+  const accent = (space && space.color) || COLORS.primary
+
+  useEffect(() => {
+    if (!msg && !saveErr) return
+    const t = setTimeout(() => { setMsg(''); setSaveErr('') }, saveErr ? 9000 : 4500)
+    return () => clearTimeout(t)
+  }, [msg, saveErr])
+
   return (
     <ClienteLayout>
-      <div className="min-h-full px-4 py-6 md:px-8 md:py-10 page-bg">
+      <div className="min-h-full px-4 py-6 md:px-8 md:py-10 page-bg" style={{ ['--space-accent']: accent }}>
 
         <button onClick={() => navigate(`/espacios/${id}`)} className="flex items-center gap-2 text-sm font-semibold mb-6 transition-colors hover:opacity-80" style={{ color: 'var(--text2)' }}>
           <ArrowLeft size={16} /> Volver a {space?.name || 'espacio'}
@@ -264,16 +384,16 @@ export default function SpaceAqi() {
         ) : !space && loadError ? (
           <div className="text-center py-16">
             <p className="text-sm font-medium" style={{ color: 'var(--text2)' }}>{loadError}</p>
-            <button onClick={() => navigate(`/espacios/${id}`)} className="mt-4 text-sm font-bold" style={{ color: '#67B7E8' }}>Volver al espacio</button>
+            <button onClick={() => navigate(`/espacios/${id}`)} className="mt-4 text-sm font-bold" style={{ color: accent }}>Volver al espacio</button>
           </div>
         ) : (
           <>
             {/* Hero */}
-            <div className="mb-8 rounded-3xl border overflow-hidden" style={{ borderColor: 'var(--border)', background: 'linear-gradient(135deg, rgba(103,183,232,0.14) 0%, rgba(43,168,160,0.06) 55%, rgba(103,183,232,0.02) 100%)' }}>
+            <div className="mb-8 rounded-3xl border overflow-hidden" style={{ borderColor: 'var(--border)', background: `linear-gradient(135deg, ${accent}24 0%, rgba(43,168,160,0.06) 55%, ${accent}05 100%)` }}>
               <div className="p-6 md:p-7">
                 <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-6">
                   <div className="flex items-center gap-4 min-w-0">
-                    <div className="w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg" style={{ background: 'linear-gradient(135deg,#67B7E8,#2BA8A0)', color: 'white' }}>
+                    <div className="w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg" style={{ background: `linear-gradient(135deg,${accent},#2BA8A0)`, color: 'white' }}>
                       {spaceIcon(space.icon, space.type, 26)}
                     </div>
                     <div className="min-w-0">
@@ -281,7 +401,7 @@ export default function SpaceAqi() {
                         Índice de calidad
                       </h1>
                       <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                        <span className="text-[11px] font-bold px-2.5 py-1 rounded-lg" style={{ background: 'rgba(103,183,232,0.15)', color: '#67B7E8' }}>{space.name}</span>
+                        <span className="text-[11px] font-bold px-2.5 py-1 rounded-lg" style={{ background: accent + '1F', color: accent }}>{space.name}</span>
                         <span className="text-[11px] font-mono uppercase" style={{ color: 'var(--text2)' }}>{space.slug}</span>
                         <span className="flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-lg" style={{ background: 'rgba(255,255,255,0.06)', color: 'var(--text2)', border: '1px solid var(--border)' }}>
                           <Gauge size={12} /> AQI del espacio
@@ -295,9 +415,9 @@ export default function SpaceAqi() {
                     <div className="w-full xl:max-w-md flex-shrink-0">
                       <div className="flex items-center justify-between mb-2">
                         <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text2)' }}>
-                          <Sparkles size={11} style={{ color: '#67B7E8' }} /> Vista previa del índice
+                          <Sparkles size={11} style={{ color: accent }} /> Vista previa del índice
                         </span>
-                        <span className="text-[10px] font-bold" style={{ color: '#67B7E8' }}>{cats.length} {cats.length === 1 ? 'categoría' : 'categorías'}</span>
+                        <span className="text-[10px] font-bold" style={{ color: accent }}>{cats.length} {cats.length === 1 ? 'categoría' : 'categorías'}</span>
                       </div>
                       <div className="flex h-5 rounded-full overflow-hidden border" style={{ borderColor: 'var(--border)', boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.08)' }}>
                         {cats.map(c => (
@@ -318,18 +438,6 @@ export default function SpaceAqi() {
               </div>
             </div>
 
-            {msg && (
-              <div className="mb-6 rounded-2xl px-4 py-3.5 text-sm font-semibold flex items-center gap-2.5" style={{ background: 'rgba(16,185,129,0.1)', color: '#10B981', border: '1px solid rgba(16,185,129,0.25)' }}>
-                <span className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: '#10B981', color: 'white' }}><Check size={13} /></span>
-                {msg}
-              </div>
-            )}
-            {saveErr && (
-              <div className="mb-6 rounded-2xl px-4 py-3.5 text-sm font-medium flex items-center gap-2.5" style={{ background: 'rgba(239,68,68,0.1)', color: '#EF4444', border: '1px solid rgba(239,68,68,0.25)' }}>
-                <span className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: '#EF4444', color: 'white' }}><X size={13} /></span>
-                {saveErr}
-              </div>
-            )}
             {loadError && (
               <div className="mb-6 rounded-2xl px-4 py-3.5 text-sm font-medium flex items-center gap-2.5" style={{ background: 'rgba(239,68,68,0.1)', color: '#EF4444', border: '1px solid rgba(239,68,68,0.25)' }}>
                 <span className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: '#EF4444', color: 'white' }}><X size={13} /></span>
@@ -346,9 +454,9 @@ export default function SpaceAqi() {
                   </p>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1.5 rounded-lg" style={{ background: completed.cats ? 'rgba(16,185,129,0.12)' : 'rgba(103,183,232,0.1)', color: completed.cats ? '#10B981' : '#67B7E8' }}>{completed.cats ? <Check size={12} /> : <Palette size={12} />} Categorías</span>
-                  <span className="flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1.5 rounded-lg" style={{ background: completed.vars ? 'rgba(16,185,129,0.12)' : 'rgba(103,183,232,0.1)', color: completed.vars ? '#10B981' : '#67B7E8' }}>{completed.vars ? <Check size={12} /> : <ListChecks size={12} />} Variables</span>
-                  <span className="flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1.5 rounded-lg" style={{ background: completed.limits ? 'rgba(16,185,129,0.12)' : 'rgba(103,183,232,0.1)', color: completed.limits ? '#10B981' : '#67B7E8' }}>{completed.limits ? <Check size={12} /> : <SlidersHorizontal size={12} />} Límites</span>
+                  <span className="flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1.5 rounded-lg" style={{ background: completed.cats ? 'rgba(16,185,129,0.12)' : accent + '1A', color: completed.cats ? '#10B981' : accent }}>{completed.cats ? <Check size={12} /> : <Palette size={12} />} Categorías</span>
+                  <span className="flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1.5 rounded-lg" style={{ background: completed.vars ? 'rgba(16,185,129,0.12)' : accent + '1A', color: completed.vars ? '#10B981' : accent }}>{completed.vars ? <Check size={12} /> : <ListChecks size={12} />} Variables</span>
+                  <span className="flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1.5 rounded-lg" style={{ background: completed.limits ? 'rgba(16,185,129,0.12)' : accent + '1A', color: completed.limits ? '#10B981' : accent }}>{completed.limits ? <Check size={12} /> : <SlidersHorizontal size={12} />} Límites</span>
                 </div>
               </div>
 
@@ -357,7 +465,7 @@ export default function SpaceAqi() {
                 <section>
                   <div className="flex items-start justify-between gap-3 mb-2">
                     <div className="flex items-center gap-2.5">
-                      <span className="w-7 h-7 rounded-xl flex items-center justify-center text-xs font-bold flex-shrink-0" style={{ background: 'linear-gradient(135deg,#67B7E8,#2BA8A0)', color: 'white' }}>1</span>
+                      <span className="w-7 h-7 rounded-xl flex items-center justify-center text-xs font-bold flex-shrink-0" style={{ background: `linear-gradient(135deg,${accent},#2BA8A0)`, color: 'white' }}>1</span>
                       <div>
                         <h3 className="font-bold text-sm leading-tight" style={{ color: 'var(--text)' }}>Categorías del índice</h3>
                         <p className="text-[11px] mt-0.5" style={{ color: 'var(--text2)' }}>Tramas de 0 a 100 repartidas equitativamente. Nivel 1 = mejor.</p>
@@ -372,7 +480,7 @@ export default function SpaceAqi() {
                       onClick={addCat}
                       disabled={cats.length >= MAX_CATS}
                       className="flex items-center gap-1.5 text-xs font-bold text-white px-3.5 py-2 rounded-xl transition-all hover:opacity-90 hover:scale-[1.02] active:scale-95 disabled:opacity-40 disabled:hover:scale-100"
-                      style={{ background: 'linear-gradient(135deg,#67B7E8,#2BA8A0)', boxShadow: '0 6px 16px rgba(103,183,232,0.35)' }}
+                      style={{ background: `linear-gradient(135deg,${accent},#2BA8A0)`, boxShadow: `0 6px 16px ${accent}59` }}
                     >
                       <Plus size={13} /> Agregar categoría
                     </button>
@@ -398,7 +506,7 @@ export default function SpaceAqi() {
                           <input
                             value={c.name}
                             onChange={e => setCats(cats.map((x, j) => j === i ? { ...x, name: e.target.value } : x))}
-                            className="w-full bg-transparent text-sm font-semibold outline-none rounded-lg px-0 py-1 transition-all focus:px-2 focus:ring-2 focus:ring-[#67B7E8]/20"
+                            className="w-full bg-transparent text-sm font-semibold outline-none rounded-lg px-0 py-1 transition-all focus:px-2 focus:ring-2 focus:ring-[var(--space-accent)]"
                             style={{ color: 'var(--text)' }}
                           />
                           <div className="mt-3">
@@ -430,12 +538,57 @@ export default function SpaceAqi() {
                               })}
                             </div>
                           </div>
+                          <div className="mt-3">
+                            <div className="flex items-center justify-between mb-1.5">
+                              <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text2)' }}>Frases de recomendación</span>
+                              <span className="text-[10px]" style={{ color: 'var(--text2)' }}>{c.phrases?.length || 0}</span>
+                            </div>
+                            <p className="text-[10px] mb-1.5" style={{ color: 'var(--text2)' }}>Se muestran al entrar a una estación cuando toca este nivel. Si ponés varias, rotan.</p>
+                            <div className="space-y-1.5">
+                              {(c.phrases || []).map((ph, k) => (
+                                <div key={k} className="flex items-center gap-1.5">
+                                  <input
+                                    value={ph}
+                                    onChange={e => {
+                                      const next = (c.phrases || []).map((x, q) => q === k ? e.target.value : x)
+                                      setCats(cats.map((x, j) => j === i ? { ...x, phrases: next } : x))
+                                    }}
+                                    className="flex-1 border rounded-lg px-2 py-1.5 text-[11px] outline-none focus:ring-2 focus:ring-[var(--space-accent)] transition-all"
+                                    style={{ background: 'var(--bg)', borderColor: 'var(--border)', color: 'var(--text)' }}
+                                  />
+                                  <button
+                                    type="button"
+                                    title="Quitar frase"
+                                    onClick={() => {
+                                      const next = (c.phrases || []).filter((_, q) => q !== k)
+                                      setCats(cats.map((x, j) => j === i ? { ...x, phrases: next } : x))
+                                    }}
+                                    className="p-1.5 rounded-lg transition-colors hover:bg-red-500/10"
+                                    style={{ color: '#EF4444' }}
+                                  >
+                                    <X size={12} />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const next = [...(c.phrases || []), '']
+                                setCats(cats.map((x, j) => j === i ? { ...x, phrases: next } : x))
+                              }}
+                              className="mt-2 flex items-center gap-1 text-[11px] font-bold transition-all hover:opacity-80"
+                              style={{ color: accent }}
+                            >
+                              <Plus size={12} /> Agregar frase
+                            </button>
+                          </div>
                         </div>
                       </div>
                     ))}
                     {cats.length === 0 && (
                       <div className="col-span-full text-center py-10 rounded-2xl border border-dashed" style={{ borderColor: 'var(--border)' }}>
-                        <Sparkles size={22} className="mx-auto mb-2 opacity-40" style={{ color: '#67B7E8' }} />
+                        <Sparkles size={22} className="mx-auto mb-2 opacity-40" style={{ color: accent }} />
                         <p className="text-sm font-medium" style={{ color: 'var(--text2)' }}>Sin categorías</p>
                         <p className="text-xs mt-1" style={{ color: 'var(--text2)' }}>Hacé clic en "Agregar categoría" para empezar.</p>
                       </div>
@@ -447,7 +600,7 @@ export default function SpaceAqi() {
                 <section>
                   <div className="flex items-start justify-between gap-3 mb-2">
                     <div className="flex items-center gap-2.5">
-                      <span className="w-7 h-7 rounded-xl flex items-center justify-center text-xs font-bold flex-shrink-0" style={{ background: 'linear-gradient(135deg,#67B7E8,#2BA8A0)', color: 'white' }}>2</span>
+                      <span className="w-7 h-7 rounded-xl flex items-center justify-center text-xs font-bold flex-shrink-0" style={{ background: `linear-gradient(135deg,${accent},#2BA8A0)`, color: 'white' }}>2</span>
                       <div>
                         <h3 className="font-bold text-sm leading-tight" style={{ color: 'var(--text)' }}>Variables del índice</h3>
                         <p className="text-[11px] mt-0.5" style={{ color: 'var(--text2)' }}>Creá tus propias variables y ordená su prioridad (arriba pesa más). El identificador técnico se genera solo desde el nombre. Cada nueva variable quedará disponible para integrarse a las estaciones del espacio (en "Editar variables" de cada estación).</p>
@@ -457,7 +610,7 @@ export default function SpaceAqi() {
                       onClick={addVar}
                       disabled={vars.length >= 20}
                       className="flex items-center gap-1.5 text-xs font-bold text-white px-3.5 py-2 rounded-xl transition-all hover:opacity-90 hover:scale-[1.02] active:scale-95 disabled:opacity-40 disabled:hover:scale-100"
-                      style={{ background: 'linear-gradient(135deg,#67B7E8,#2BA8A0)', boxShadow: '0 6px 16px rgba(103,183,232,0.35)' }}
+                      style={{ background: `linear-gradient(135deg,${accent},#2BA8A0)`, boxShadow: `0 6px 16px ${accent}59` }}
                     >
                       <Plus size={13} /> Agregar variable
                     </button>
@@ -468,7 +621,7 @@ export default function SpaceAqi() {
                       const dup = vars.some(o => o !== v && o.label && o.label === v.label)
                       return (
                         <div key={v._id} className="group relative rounded-2xl border overflow-hidden transition-all duration-200 hover:shadow-md hover:-translate-y-0.5" style={{ borderColor: v.label && !dup ? 'var(--border)' : '#EF4444', background: 'var(--bg)' }}>
-                          <div className="h-1.5 transition-colors" style={{ background: v.label && !dup ? 'linear-gradient(90deg,#67B7E8,#2BA8A0)' : '#EF4444' }} />
+                          <div className="h-1.5 transition-colors" style={{ background: v.label && !dup ? `linear-gradient(90deg,${accent},#2BA8A0)` : '#EF4444' }} />
                           <div className="p-4">
                             <button
                               onClick={() => removeVar(v._id)}
@@ -484,31 +637,32 @@ export default function SpaceAqi() {
                                 {v.catalogLabel && (
                                   <span className="text-[8px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-md" style={{ background: 'rgba(43,168,160,0.12)', color: '#2BA8A0', border: '1px solid rgba(43,168,160,0.3)' }}>priv</span>
                                 )}
-                                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-md truncate" style={{ background: v.label ? 'rgba(103,183,232,0.1)' : 'rgba(0,0,0,0.04)', color: v.label ? '#67B7E8' : 'var(--text2)' }}>{v.label || 'id...'}</span>
+                                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-md truncate" style={{ background: v.label ? accent + '1A' : 'rgba(0,0,0,0.04)', color: v.label ? accent : 'var(--text2)' }}>{v.label || 'id...'}</span>
                               </span>
                             </div>
                             <input
                               value={v.name}
                               onChange={e => updateVar(v._id, { name: e.target.value })}
                               placeholder="Nombre, ej. Temperatura"
-                              className="w-full bg-transparent text-sm font-semibold outline-none rounded-lg px-0 py-1 transition-all focus:px-2 focus:ring-2 focus:ring-[#67B7E8]/20"
+                              className="w-full bg-transparent text-sm font-semibold outline-none rounded-lg px-0 py-1 transition-all focus:px-2 focus:ring-2 focus:ring-[var(--space-accent)]"
                               style={{ color: 'var(--text)' }}
                             />
+                            <UnitChips unit={v.unit} accent={accent} onPick={u => updateVar(v._id, { unit: v.unit === u ? '' : u })} />
                             <input
                               value={v.unit}
                               onChange={e => updateVar(v._id, { unit: e.target.value })}
-                              placeholder="Unidad, ej. °C"
-                              className="w-full bg-transparent text-[11px] outline-none rounded-lg px-0 py-1 transition-all focus:px-2 focus:ring-2 focus:ring-[#67B7E8]/20"
+                              placeholder="Unidad, ej. °C (o elegí una de arriba)"
+                              className="w-full bg-transparent text-[11px] outline-none rounded-lg px-0 py-1 transition-all focus:px-2 focus:ring-2 focus:ring-[var(--space-accent)]"
                               style={{ color: 'var(--text2)' }}
                             />
                             {dup && (
                               <p className="text-[10px] font-semibold mt-1.5" style={{ color: '#EF4444' }}>Identificador duplicado, cambiá este nombre.</p>
                             )}
                             <div className="flex items-center gap-2 mt-3 pt-2.5 border-t" style={{ borderColor: 'var(--border)' }}>
-                              <button onClick={() => moveVar(i, -1)} disabled={i === 0} className="w-7 h-7 rounded-lg flex items-center justify-center border transition-all hover:text-[#67B7E8] disabled:opacity-20 disabled:pointer-events-none" style={{ borderColor: 'var(--border)', color: 'var(--text2)' }}>
+                              <button onClick={() => moveVar(i, -1)} disabled={i === 0} className="w-7 h-7 rounded-lg flex items-center justify-center border transition-all hover:text-[var(--space-accent)] disabled:opacity-20 disabled:pointer-events-none" style={{ borderColor: 'var(--border)', color: 'var(--text2)' }}>
                                 <ChevronUp size={13} />
                               </button>
-                              <button onClick={() => moveVar(i, 1)} disabled={i === vars.length - 1} className="w-7 h-7 rounded-lg flex items-center justify-center border transition-all hover:text-[#67B7E8] disabled:opacity-20 disabled:pointer-events-none" style={{ borderColor: 'var(--border)', color: 'var(--text2)' }}>
+                              <button onClick={() => moveVar(i, 1)} disabled={i === vars.length - 1} className="w-7 h-7 rounded-lg flex items-center justify-center border transition-all hover:text-[var(--space-accent)] disabled:opacity-20 disabled:pointer-events-none" style={{ borderColor: 'var(--border)', color: 'var(--text2)' }}>
                                 <ChevronDown size={13} />
                               </button>
                               <span className="text-[10px]" style={{ color: 'var(--text2)' }}>Prioridad</span>
@@ -519,7 +673,7 @@ export default function SpaceAqi() {
                     })}
                     {vars.length === 0 && (
                       <div className="col-span-full text-center py-10 rounded-2xl border border-dashed" style={{ borderColor: 'var(--border)' }}>
-                        <Activity size={22} className="mx-auto mb-2 opacity-40" style={{ color: '#67B7E8' }} />
+                        <Activity size={22} className="mx-auto mb-2 opacity-40" style={{ color: accent }} />
                         <p className="text-sm font-medium" style={{ color: 'var(--text2)' }}>Sin variables</p>
                         <p className="text-xs mt-1" style={{ color: 'var(--text2)' }}>Hacé clic en "Agregar variable" para crear la primera. El índice no se calcula sin variables.</p>
                       </div>
@@ -531,7 +685,7 @@ export default function SpaceAqi() {
                 {vars.length > 0 && (
                   <section>
                     <div className="flex items-center gap-2.5 mb-2">
-                      <span className="w-7 h-7 rounded-xl flex items-center justify-center text-xs font-bold flex-shrink-0" style={{ background: 'linear-gradient(135deg,#67B7E8,#2BA8A0)', color: 'white' }}>3</span>
+                      <span className="w-7 h-7 rounded-xl flex items-center justify-center text-xs font-bold flex-shrink-0" style={{ background: `linear-gradient(135deg,${accent},#2BA8A0)`, color: 'white' }}>3</span>
                       <div>
                         <h3 className="font-bold text-sm leading-tight" style={{ color: 'var(--text)' }}>Límites de cada variable</h3>
                         <p className="text-[11px] mt-0.5" style={{ color: 'var(--text2)' }}>Límite superior (max) de cada categoría. El del último nivel queda abierto.</p>
@@ -541,7 +695,7 @@ export default function SpaceAqi() {
                       <div className="overflow-x-auto">
                         <table className="w-full text-sm border-collapse min-w-[560px]">
                           <thead>
-                            <tr style={{ background: 'rgba(103,183,232,0.06)' }}>
+                            <tr style={{ background: accent + '0F' }}>
                               <th className="text-left py-3 pl-4 pr-4 font-bold text-[11px] uppercase tracking-wide" style={{ color: 'var(--text2)' }}>Variable</th>
                               {cats.map((c, i) => (
                                 <th key={c._id} className="text-left py-3 px-2 font-bold text-[11px]" style={{ color: c.color }}>
@@ -563,6 +717,7 @@ export default function SpaceAqi() {
                                   if (i === cats.length - 1) {
                                     return <td key={c._id} className="py-2.5 px-2 text-xs italic" style={{ color: 'var(--text2)' }}>abierto</td>
                                   }
+                                  const err = rangeErrors[v.label + ':' + (c._id + 1)]
                                   return (
                                     <td key={c._id} className="py-2.5 px-2">
                                       <div className="flex items-center gap-1.5">
@@ -571,10 +726,10 @@ export default function SpaceAqi() {
                                           placeholder="max"
                                           value={r?.max_value ?? ''}
                                           onChange={e => setRangeMax(v.label, c._id + 1, e.target.value)}
-                                          className="w-24 bg-transparent border rounded-lg px-2.5 py-1.5 text-sm outline-none transition-all focus:ring-2 focus:ring-[#67B7E8]/20 focus:border-[#67B7E8]"
-                                          style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
+                                          className={`w-24 bg-transparent border rounded-lg px-2.5 py-1.5 text-sm outline-none transition-all focus:ring-2 focus:ring-[var(--space-accent)] focus:border-[var(--space-accent)] ${err ? 'border-red-500' : ''}`}
+                                          style={{ borderColor: err ? '#EF4444' : 'var(--border)', color: 'var(--text)' }}
                                         />
-                                        <span className="text-[10px]" style={{ color: 'var(--text2)' }}>max</span>
+                                        <span className="text-[10px]" style={{ color: err ? '#EF4444' : 'var(--text2)' }}>{err ? (err === 'req' ? 'requerido' : 'debe ser > ' + err) : 'max'}</span>
                                       </div>
                                     </td>
                                   )
@@ -601,7 +756,7 @@ export default function SpaceAqi() {
                       onClick={save}
                       disabled={saving}
                       className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:hover:scale-100"
-                      style={{ background: 'linear-gradient(135deg,#67B7E8,#2BA8A0)', boxShadow: '0 8px 20px rgba(103,183,232,0.35)' }}
+                      style={{ background: `linear-gradient(135deg,${accent},#2BA8A0)`, boxShadow: `0 8px 20px ${accent}59` }}
                     >
                       {saving ? <RefreshCw size={15} className="animate-spin" /> : <Save size={15} />} {saving ? 'Guardando...' : 'Guardar configuración'}
                     </button>
@@ -610,6 +765,27 @@ export default function SpaceAqi() {
               </div>
             </div>
           </>
+        )}
+
+        {(msg || saveErr) && (
+          <div className="fixed top-5 left-1/2 -translate-x-1/2 z-[70] w-[calc(100%-2rem)] max-w-md">
+            <div
+              className="rounded-2xl px-4 py-3.5 text-sm font-medium flex items-center gap-3 shadow-2xl backdrop-blur-md animate-in slide-in-from-top-5 fade-in duration-300"
+              style={{
+                background: saveErr ? 'rgba(239,68,68,0.14)' : 'rgba(16,185,129,0.14)',
+                color: saveErr ? '#EF4444' : '#10B981',
+                border: '1px solid ' + (saveErr ? 'rgba(239,68,68,0.35)' : 'rgba(16,185,129,0.35)')
+              }}
+            >
+              <span className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: saveErr ? '#EF4444' : '#10B981', color: 'white' }}>
+                {saveErr ? <X size={13} /> : <Check size={13} />}
+              </span>
+              <span className="flex-1">{saveErr || msg}</span>
+              <button onClick={() => { setMsg(''); setSaveErr('') }} className="p-1 rounded-full hover:bg-black/5 dark:hover:bg-white/5 transition-colors flex-shrink-0" style={{ color: 'currentColor' }} title="Cerrar">
+                <X size={15} />
+              </button>
+            </div>
+          </div>
         )}
       </div>
     </ClienteLayout>

@@ -7,12 +7,22 @@ export default async function publicRoutes(app) {
   app.get('/devices', async (req, reply) => {
     try {
       const { rows } = await app.db.query(
-        `SELECT id, name, lat, lng, description, 
-                CASE WHEN last_seen > NOW() - INTERVAL '10 minutes' 
+        `SELECT d.id, d.name, d.lat, d.lng, d.description, 
+                CASE WHEN d.last_seen > NOW() - INTERVAL '10 minutes' 
                      THEN 'online' ELSE 'offline' END as status
-         FROM devices 
-         WHERE lat IS NOT NULL AND lng IS NOT NULL
-         ORDER BY name ASC`
+         FROM devices d
+         LEFT JOIN spaces s ON s.id = d.space_id
+         LEFT JOIN organizations o ON o.id = d.org_id
+         WHERE d.lat IS NOT NULL AND d.lng IS NOT NULL
+           AND (
+             -- Orgs dependientes (Sanik): siempre visibles (espacio de aire o sin espacio)
+             (COALESCE(o.type, 'A') = 'A' AND (d.space_id IS NULL OR s.type = 'aire'))
+             OR
+             -- Orgs independientes: solo si el usuario activó el switch Y está en un espacio de aire visible
+             (COALESCE(o.type, 'A') = 'B' AND d.public_map = TRUE
+              AND d.space_id IS NOT NULL AND s.type = 'aire' AND s.hidden = FALSE)
+           )
+         ORDER BY d.name ASC`
       )
       return rows
     } catch (err) {

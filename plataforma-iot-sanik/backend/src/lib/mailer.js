@@ -47,6 +47,14 @@ export function createMailer(log) {
         `<p>— Sanik</p>`
 
       await transport.sendMail({ from, to: email, subject: 'Recuperación de contraseña — Sanik', text, html })
+    },
+
+    async sendAlert(to, subject, text) {
+      const html =
+        `<p style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6;">` +
+        text.replace(/\n/g, '<br/>') +
+        `</p>`
+      await transport.sendMail({ from, to, subject, text, html })
     }
   }
 }

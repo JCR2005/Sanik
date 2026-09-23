@@ -29,6 +29,8 @@ CREATE TABLE IF NOT EXISTS spaces (
   type        TEXT NOT NULL DEFAULT 'aire',
   hidden      BOOLEAN DEFAULT FALSE,
   description TEXT,
+  icon        TEXT DEFAULT 'map-pin',
+  color       TEXT DEFAULT '#67B7E8',
   created_at  TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE (org_id, slug)
 );
